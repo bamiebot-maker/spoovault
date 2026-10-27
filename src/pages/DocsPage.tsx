@@ -676,42 +676,36 @@ e.storage().instance().extend_ttl(
               <FiUsers className="text-purple-400" />
               Maintainers & Contributors
             </h2>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-xl bg-[#090714] border border-purple-900/30 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white text-sm">
-                  OF
-                </div>
+                <img
+                  src="https://github.com/bamiebot-maker.png"
+                  alt="Ibrahim Sobur Bamidele"
+                  className="w-12 h-12 rounded-full border border-purple-500/40 object-cover"
+                />
                 <div>
-                  <div className="text-sm font-bold text-white">Ope Fawaz</div>
-                  <div className="text-xs text-purple-300">Co-Founder & Protocol Architect</div>
-                  <a
-                    href="https://github.com/opefawaz"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 mt-0.5"
-                  >
-                    <span>@opefawaz</span>
-                    <FiExternalLink className="text-[9px]" />
-                  </a>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#090714] border border-purple-900/30 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-emerald-600 flex items-center justify-center font-bold text-white text-sm">
-                  BT
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-white">Bamigboye Timothy</div>
-                  <div className="text-xs text-purple-300">Lead Full-Stack & Cryptography Engineer</div>
-                  <a
-                    href="https://github.com/bamigboyetimothy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 mt-0.5"
-                  >
-                    <span>@bamigboyetimothy</span>
-                    <FiExternalLink className="text-[9px]" />
-                  </a>
+                  <div className="text-sm font-bold text-white">Ibrahim Sobur Bamidele</div>
+                  <div className="text-xs text-purple-300">Founder, Lead Full-Stack & Smart Contract Developer</div>
+                  <div className="flex items-center gap-3 mt-1">
+                    <a
+                      href="https://github.com/bamiebot-maker"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1"
+                    >
+                      <span>@bamiebot-maker</span>
+                      <FiExternalLink className="text-[9px]" />
+                    </a>
+                    <a
+                      href="https://x.com/bamietech_dev"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                    >
+                      <span>@bamietech_dev</span>
+                      <FiExternalLink className="text-[9px]" />
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,5 +1,8 @@
 <div align="center">
-  <img src="public/spoovault-logo.png" alt="SpooVault Logo" width="220" />
+  <a href="https://spoovault.web.app">
+    <img src="public/spoovault-logo.png" alt="SpooVault Banner" width="800" style="max-width: 100%; border-radius: 12px;" />
+  </a>
+  <br /><br />
   <h1>SpooVault 🔐</h1>
   <p><strong>The Next-Generation Trustless Document Custody & Dead Man's Switch Protocol on Stellar & Soroban</strong></p>
 
@@ -221,6 +224,8 @@ Stay connected with our official channels and join our community:
 - **Public Documentation Hub:** [https://spoovault.web.app/docs](https://spoovault.web.app/docs)
 - **Stellar Contract Explorer:** [CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B](https://stellar.expert/explorer/testnet/contract/CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B)
 - **Official GitHub:** [https://github.com/spoo-vault/spoovault](https://github.com/spoo-vault/spoovault)
+- **Maintainer Mirror:** [https://github.com/bamiebot-maker/spoovault](https://github.com/bamiebot-maker/spoovault)
+- **Founder Profile:** [https://x.com/bamietech_dev](https://x.com/bamietech_dev) (`@bamietech_dev`)
 - **Drips Wave Profile:** [https://drips.network](https://drips.network)
 
 ---
@@ -229,8 +234,7 @@ Stay connected with our official channels and join our community:
 
 | Avatar | Name / Role | GitHub | Contact / Social |
 | :---: | :---: | :---: | :---: |
-| <img src="https://github.com/opefawaz.png" width="80" style="border-radius:50%" /> | **Ope Fawaz**<br/>_Co-Founder & Protocol Architect_ | [@opefawaz](https://github.com/opefawaz) | [GitHub Profile](https://github.com/opefawaz) |
-| <img src="https://github.com/bamigboyetimothy.png" width="80" style="border-radius:50%" /> | **Bamigboye Timothy**<br/>_Lead Full-Stack & Cryptography Engineer_ | [@bamigboyetimothy](https://github.com/bamigboyetimothy) | [GitHub Profile](https://github.com/bamigboyetimothy) |
+| <img src="https://github.com/bamiebot-maker.png" width="80" style="border-radius:50%" /> | **Ibrahim Sobur Bamidele**<br/>_Founder, Lead Full-Stack & Smart Contract Developer_ | [@bamiebot-maker](https://github.com/bamiebot-maker) | [X (Twitter)](https://x.com/bamietech_dev) • [GitHub](https://github.com/bamiebot-maker) |
 
 ---
 
