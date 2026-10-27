@@ -226,8 +226,14 @@ const MAINNET_RPC_URLS = [
 ];
 
 const getContractAddress = (): string => {
+  if (getEcosystem() === "stellar") {
+    return (import.meta.env.VITE_STELLAR_CONTRACT_ADDRESS as string | undefined) || "";
+  }
   const address = import.meta.env.VITE_CONTRACT_ADDRESS as string | undefined;
   if (!address) {
+    if (typeof window !== "undefined") {
+      return "";
+    }
     throw new Error("VITE_CONTRACT_ADDRESS is not set");
   }
   return address;
@@ -313,7 +319,13 @@ const waitForReceipt = async (tx: any) => {
 };
 
 const ensureContractDeployed = async (): Promise<void> => {
+  if (getEcosystem() === "stellar") {
+    return;
+  }
   const address = getContractAddress();
+  if (!address) {
+    return;
+  }
 
   if (hasVerifiedCode && verifiedAddress === address) {
     return;
@@ -2043,8 +2055,12 @@ const getRecentActivity = async (limit = 5): Promise<ActivityEvent[]> => {
 };
 
 const getEcosystem = (): "avalanche" | "stellar" => {
-  if (typeof window === "undefined") return "avalanche";
-  return (window.localStorage.getItem("spoovault-ecosystem") as "avalanche" | "stellar") || "avalanche";
+  if (typeof window === "undefined") {
+    return provider ? "avalanche" : "stellar";
+  }
+  const stored = window.localStorage?.getItem("spoovault-ecosystem");
+  if (stored === "avalanche") return "avalanche";
+  return "stellar";
 };
 
 // ---------------------------------------------------------------------------
@@ -2447,6 +2463,43 @@ const proxiedApproveAccessBLS = async (
   );
 };
 
+const proxiedGetTotalSupply = async (): Promise<number> => {
+  if (getEcosystem() === "stellar") {
+    return stellarService.getTotalSupply();
+  }
+  try {
+    return await getTotalSupply();
+  } catch {
+    return 0;
+  }
+};
+
+const proxiedBurnAccessToken = async (tokenId: number): Promise<void> => {
+  if (getEcosystem() === "stellar") {
+    return stellarService.burnAccessToken(tokenId);
+  }
+  return burnAccessToken(tokenId);
+};
+
+const proxiedGetActivePassCountByVault = async (
+  vaultIds: number[]
+): Promise<Record<number, number>> => {
+  if (getEcosystem() === "stellar") {
+    const counts: Record<number, number> = {};
+    vaultIds.forEach((id) => (counts[id] = 0));
+    try {
+      const tokens = (await stellarService.fetchUserTokens("")) as any[];
+      tokens.forEach((t) => {
+        if (counts[t.vaultId] !== undefined) {
+          counts[t.vaultId] += 1;
+        }
+      });
+    } catch {}
+    return counts;
+  }
+  return getActivePassCountByVault(vaultIds);
+};
+
 export const contractService = {
   initialize,
   clear,
@@ -2460,7 +2513,7 @@ export const contractService = {
   approveAccessBLS: proxiedApproveAccessBLS,
   acceptGuardianInvite: proxiedAcceptGuardianInvite,
   mintAccessToken: proxiedMintAccessToken,
-  burnAccessToken,
+  burnAccessToken: proxiedBurnAccessToken,
   fetchVaults,
   fetchVaultsByIds,
   fetchVaultsForAccount: proxiedFetchVaultsForAccount,
@@ -2469,8 +2522,8 @@ export const contractService = {
   fetchPendingInvites: proxiedFetchPendingInvites,
   fetchUserTokens: proxiedFetchUserTokens,
   hasVaultToken: proxiedHasVaultToken,
-  getActivePassCountByVault,
-  getTotalSupply,
+  getActivePassCountByVault: proxiedGetActivePassCountByVault,
+  getTotalSupply: proxiedGetTotalSupply,
   hasActiveAccess: proxiedHasActiveAccess,
   getActiveAccessMap: proxiedGetActiveAccessMap,
   getLatestRequestsForUser: proxiedGetLatestRequestsForUser,

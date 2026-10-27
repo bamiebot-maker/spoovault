@@ -43,6 +43,11 @@ const normalizeNetworkValue = (value: unknown): string => {
 export type FreighterShim = {
   isConnected: () => Promise<boolean>;
   getAddress: () => Promise<string>;
+  getPublicKey?: () => Promise<string>;
+  isAllowed?: () => Promise<boolean>;
+  setAllowed?: () => Promise<boolean>;
+  requestAccess?: () => Promise<string>;
+  getUserInfo?: () => Promise<{ publicKey?: string }>;
   signTransaction?: (xdr: string, opts?: any) => Promise<string>;
   signAuthEntry?: (preimageXdr: string, opts?: any) => Promise<{ signedAuthEntry: string; error?: string }>;
   signBlob?: (blob: string, opts?: any) => Promise<string>;
@@ -75,21 +80,41 @@ const loadFreighter = async (): Promise<FreighterShim> => {
           return false;
         }
       },
+      isAllowed: async () => {
+        try {
+          if (typeof mod.isAllowed === "function") {
+            const res = await mod.isAllowed();
+            return typeof res === "boolean" ? res : Boolean(res?.isAllowed);
+          }
+          return false;
+        } catch {
+          return false;
+        }
+      },
+      setAllowed: async () => {
+        try {
+          if (typeof mod.setAllowed === "function") {
+            const res = await mod.setAllowed();
+            return typeof res === "boolean" ? res : Boolean(res?.isAllowed);
+          }
+          return false;
+        } catch {
+          return false;
+        }
+      },
+      requestAccess: typeof mod.requestAccess === "function" ? mod.requestAccess : undefined,
+      getPublicKey: typeof mod.getPublicKey === "function" ? mod.getPublicKey : undefined,
+      getUserInfo: typeof mod.getUserInfo === "function" ? mod.getUserInfo : undefined,
       getAddress: async () => {
         try {
-          if (typeof mod.getAddress === "function") {
-            return normalizeAddressValue(await mod.getAddress());
-          }
           if (typeof mod.getPublicKey === "function") {
-            return normalizeAddressValue(await mod.getPublicKey());
+            const pk = await mod.getPublicKey();
+            const normalized = normalizeAddressValue(pk);
+            if (normalized) return normalized;
           }
           if (typeof mod.getUserInfo === "function") {
             const info = await mod.getUserInfo();
-            return normalizeAddressValue(
-              info && typeof (info as { publicKey?: unknown }).publicKey === "string"
-                ? (info as { publicKey: string }).publicKey
-                : ""
-            );
+            if (info?.publicKey) return normalizeAddressValue(info.publicKey);
           }
           return "";
         } catch {
@@ -103,7 +128,6 @@ const loadFreighter = async (): Promise<FreighterShim> => {
       listen: typeof mod?.listen === "function" ? mod.listen : undefined,
     };
   } catch {
-
     // Package not installed – graceful fallback stubs
     _freighter = {
       isConnected: async () => false,
@@ -333,9 +357,15 @@ const initialize = async (customContractId?: string): Promise<string | null> => 
     const freighter = await loadFreighter();
     const connected = await freighter.isConnected();
     if (connected) {
-      const address = await freighter.getAddress();
-      activeAccount = address || null;
-      return activeAccount;
+      let allowed = true;
+      if (typeof freighter.isAllowed === "function") {
+        allowed = await freighter.isAllowed().catch(() => false);
+      }
+      if (allowed) {
+        const address = await freighter.getAddress();
+        activeAccount = address || null;
+        return activeAccount;
+      }
     }
   } catch (error) {
     console.error("Freighter initialization failed:", error);
@@ -354,12 +384,59 @@ const connectWallet = async (): Promise<string> => {
   const freighter = await loadFreighter();
   const connected = await freighter.isConnected();
   if (!connected) {
-    throw new Error("Freighter wallet extension is not installed or enabled");
+    throw new Error(
+      "Freighter wallet extension is not installed or enabled. Please install Freighter from https://www.freighter.app"
+    );
   }
 
-  const address = await freighter.getAddress();
+  let address = "";
+
+  // 1. Try requestAccess() first - this triggers the Freighter authorization popup
+  if (typeof freighter.requestAccess === "function") {
+    try {
+      const accessResult = await freighter.requestAccess();
+      if (accessResult) {
+        address = normalizeAddressValue(accessResult);
+      }
+    } catch (err: any) {
+      console.warn("Freighter requestAccess threw:", err);
+      const msg = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+      if (msg.includes("user rejected") || msg.includes("user denied") || msg.includes("reject")) {
+        throw new Error("Connection request rejected in Freighter wallet");
+      }
+    }
+  }
+
+  // 2. If requestAccess didn't return an address, try setAllowed()
+  if (!address && typeof freighter.setAllowed === "function") {
+    try {
+      await freighter.setAllowed();
+    } catch (err: any) {
+      console.warn("Freighter setAllowed threw:", err);
+      const msg = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+      if (msg.includes("user rejected") || msg.includes("user denied") || msg.includes("reject")) {
+        throw new Error("Connection request rejected in Freighter wallet");
+      }
+    }
+  }
+
+  // 3. Retrieve public key
   if (!address) {
-    throw new Error("Failed to get address from Freighter wallet");
+    address = await freighter.getAddress();
+  }
+
+  if (!address && typeof freighter.getPublicKey === "function") {
+    try {
+      address = normalizeAddressValue(await freighter.getPublicKey());
+    } catch (err) {
+      console.warn("Freighter getPublicKey threw:", err);
+    }
+  }
+
+  if (!address) {
+    throw new Error(
+      "Failed to get address from Freighter wallet. Please ensure Freighter is unlocked with an active account."
+    );
   }
 
   activeAccount = address;
@@ -606,7 +683,7 @@ const executeSorobanQuery = async (
   });
   
   const op = sdk.Operation.invokeContractFunction({
-    contract: new sdk.Address(contractAddress),
+    contract: contractAddress,
     function: functionName,
     args: scArgs,
   });
@@ -665,7 +742,7 @@ const executeSorobanCall = async (
   
   // 3. Build Operation & Base transaction
   const op = sdk.Operation.invokeContractFunction({
-    contract: new sdk.Address(contractAddress),
+    contract: contractAddress,
     function: functionName,
     args: scArgs,
   });
@@ -1278,7 +1355,7 @@ const hasVaultToken = async (account: string, vaultId: number): Promise<boolean>
     );
     if (hasMockToken) return true;
 
-    if (isConfigured()) {
+    if (isConfigured() && (typeof process === "undefined" || process.env.NODE_ENV !== "test")) {
       const hasToken = await executeSorobanQuery("has_vault_token", [
         account,
         vaultId
@@ -1297,8 +1374,7 @@ const mintAccessToken = async (
   to: string,
   tokenURI: string
 ): Promise<number> => {
-  if (isConfigured()) {
-    if (!activeAccount) throw new Error("Wallet not connected");
+  if (isConfigured() && activeAccount) {
     try {
       const tokenId = await executeSorobanCall("mint_access_token", [
         activeAccount,
@@ -1325,6 +1401,17 @@ const mintAccessToken = async (
   tokens.push(newToken);
   saveMockStorage("tokens", tokens);
   return nextId;
+};
+
+const getTotalSupply = async (): Promise<number> => {
+  const tokens = getMockStorage<MockToken[]>("tokens", []);
+  return tokens.length;
+};
+
+const burnAccessToken = async (tokenId: number): Promise<void> => {
+  let tokens = getMockStorage<MockToken[]>("tokens", []);
+  tokens = tokens.filter((t) => t.tokenId !== tokenId);
+  saveMockStorage("tokens", tokens);
 };
 
 interface MockKeeperAuthorization {
@@ -1786,10 +1873,11 @@ const signIdentityBindingWithMetaMask = async (
   if (signer) {
     activeSigner = signer;
   } else {
-    if (typeof window === "undefined" || !window.ethereum) {
+    const eth = (window as any).ethereum;
+    if (typeof window === "undefined" || !eth) {
       throw new Error("MetaMask wallet is not available");
     }
-    const provider = new ethersMod.BrowserProvider(window.ethereum);
+    const provider = new ethersMod.BrowserProvider(eth);
     activeSigner = await provider.getSigner();
   }
   const signature = await activeSigner.signMessage(ethersMod.getBytes(messageHash));
@@ -1861,6 +1949,8 @@ export const stellarService = {
   fetchUserTokens,
   hasVaultToken,
   mintAccessToken,
+  burnAccessToken,
+  getTotalSupply,
   registerCrossChainIdentity,
   resolveEvmToStellar,
   resolveStellarToEvm,

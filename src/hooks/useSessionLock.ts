@@ -25,6 +25,7 @@ export function useSessionLock(idleTimeoutMs?: number) {
             : []
           : [],
       onLock: (accounts) => {
+        if (!accounts || accounts.length === 0) return;
         setLockedAccounts(accounts);
         setLocked(true);
       },
@@ -62,5 +63,9 @@ export function useSessionLock(idleTimeoutMs?: number) {
     [lockedAccounts, account, start]
   );
 
-  return { locked, lockedAccounts, handleUnlock };
+  const handleDismiss = useCallback(() => {
+    setLocked(false);
+  }, []);
+
+  return { locked, lockedAccounts, handleUnlock, handleDismiss };
 }

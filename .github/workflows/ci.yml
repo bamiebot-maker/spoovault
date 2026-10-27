@@ -8,12 +8,22 @@ on:
 
 jobs:
   build-and-test:
-    name: Build & Test Validation
+    name: Build & Test Validation (Stellar & Web)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Test Stellar Soroban Contracts
+        run: |
+          cd contracts-stellar
+          cargo test --verbose
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,9 +39,6 @@ jobs:
 
       - name: Build Web Application
         run: npm run build
-
-      - name: Compile Hardhat EVM Contracts
-        run: npx hardhat compile --config hardhat.config.cjs
 
       - name: Run Unit Tests
         run: npm test

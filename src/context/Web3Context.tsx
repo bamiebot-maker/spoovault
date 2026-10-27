@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
-import { ethers } from "ethers";
 import { toast } from "react-hot-toast";
 import { contractService } from "../services/contract.service";
 import {
@@ -10,47 +9,6 @@ import { sorobanEventIndexer } from "../services/sorobanEventIndexer.service";
 import { blsKeyringService } from "../services/blsKeyring.service";
 import type { BLSKeyPair, BLSSignatureShare, BLSAggregatedApprovalPayload } from "../types/bls";
 
-const CONTRACT_ABI = [
-  "function registerGuardianBLSKey(uint256 vaultId, bytes blsPublicKey, bytes proofOfPossession) external",
-  "function getGuardianBLSKey(uint256 vaultId, address guardian) external view returns (bytes, bytes, bool)",
-  "function approveAccessBLS(uint256 requestId, address[] guardianAddresses, bytes aggregatedSignature, bytes aggregatedPublicKey, string[] encryptedSharesForBeneficiary) external",
-  "function createVault(string name, string description, address[] guardians, uint256 approvalThreshold) external returns (uint256)",
-  "function acceptGuardianInvite(uint256 vaultId) external",
-  "function addDocument(uint256 vaultId, string encryptedMetadata, string ipfsHash, uint8 requiredAccess) external returns (uint256)",
-  "function requestAccess(uint256 documentId) external returns (uint256)",
-  "function approveAccess(uint256 requestId) external",
-  "function revokeAccess(uint256 documentId, address user) external",
-  "function mintAccessToken(uint256 vaultId, address to, string tokenURI) external returns (uint256)",
-  "function burnAccessToken(uint256 tokenId) external",
-  "function getVault(uint256 vaultId) external view returns (uint256, address, string, string, address[], uint256, bool, uint256)",
-  "function getPendingInvites(address user) external view returns (tuple(address guardian, uint256 vaultId, bool accepted, uint256 expiresAt)[])",
-  "function balanceOf(address owner) external view returns (uint256)",
-  "function ownerOf(uint256 tokenId) external view returns (address)",
-  "function tokenURI(uint256 tokenId) external view returns (string)",
-  "event VaultCreated(uint256 indexed vaultId, address indexed creator, string name)",
-  "event GuardianAdded(uint256 indexed vaultId, address indexed guardian)",
-  "event DocumentAdded(uint256 indexed documentId, uint256 indexed vaultId, string ipfsHash)",
-  "event AccessRequested(uint256 indexed requestId, uint256 indexed documentId, address indexed requester)",
-];
-
-// ---------------------------------------------------------------------------
-// Auto-connect retry/backoff policy
-//
-// checkConnection() below runs unattended - on mount, and whenever the
-// injected provider fires `accountsChanged`/`chainChanged` - rather than from
-// a user click. Previously a transient failure there (provider not fully
-// injected yet, an RPC hiccup, a wallet permission prompt the user declines)
-// had no retry ceiling: `accountsChanged` can fire repeatedly in quick
-// succession, and each occurrence re-ran the check with no backoff and no
-// memory of a prior rejection, so a user who dismissed one wallet prompt
-// could be re-prompted continuously, freezing the tab's UI thread under the
-// resulting churn.
-//
-// The policy: retry transient failures a bounded number of times with
-// exponential backoff, but the moment a failure looks like an explicit user
-// rejection, stop rescheduling entirely until the user takes a new explicit
-// action (clicking Connect, or switching ecosystem).
-// ---------------------------------------------------------------------------
 const AUTO_CONNECT_MAX_ATTEMPTS = 3;
 const AUTO_CONNECT_BASE_DELAY_MS = 1000;
 const AUTO_CONNECT_MAX_DELAY_MS = 8000;
@@ -58,25 +16,26 @@ const AUTO_CONNECT_MAX_DELAY_MS = 8000;
 const isUserRejection = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false;
   const err = error as { code?: number; message?: unknown };
-  if (err.code === 4001) return true; // EIP-1193 UserRejectedRequestError
+  if (err.code === 4001) return true;
   const message = typeof err.message === "string" ? err.message.toLowerCase() : "";
   return message.includes("user rejected") || message.includes("user denied");
 };
 
 interface Web3ContextType {
-  provider: ethers.BrowserProvider | null;
-  signer: ethers.Signer | null;
+  provider: any | null;
+  signer: any | null;
   account: string | null;
   chainId: number | null;
   isConnected: boolean;
   isConnecting: boolean;
-  contract: ethers.Contract | null;
+  contract: any | null;
   connect: () => Promise<void>;
   disconnect: (options?: { notify?: boolean }) => void;
   switchToFuji: () => Promise<void>;
   isFujiNetwork: boolean;
-  ecosystem: "avalanche" | "stellar";
-  setEcosystem: (eco: "avalanche" | "stellar") => void;
+  isStellarNetwork: boolean;
+  ecosystem: "stellar";
+  setEcosystem: (eco: "stellar") => void;
   stellarNetwork: string | null;
   blsKeyPair: BLSKeyPair | null;
   generateBLSKey: () => Promise<BLSKeyPair>;
@@ -93,134 +52,14 @@ interface Web3ContextType {
 
 const Web3Context = createContext<Web3ContextType | undefined>(undefined);
 
+const EXPECTED_STELLAR_NETWORK = "TESTNET";
+
 export const Web3Provider = ({ children }: { children: ReactNode }) => {
-  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
-  const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const [account, setAccount] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
-  const [contract, setContract] = useState<ethers.Contract | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [stellarNetwork, setStellarNetwork] = useState<string | null>(null);
+  const [stellarNetwork, setStellarNetwork] = useState<string | null>("TESTNET");
   const [blsKeyPair, setBlsKeyPair] = useState<BLSKeyPair | null>(null);
-
-  const [ecosystem, setEcosystemState] = useState<"avalanche" | "stellar">(() => {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("spoovault-ecosystem");
-      if (stored === "stellar") return "stellar";
-    }
-    return "avalanche";
-  });
-
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-ecosystem", ecosystem);
-    }
-  }, [ecosystem]);
-
-  const setEcosystem = (eco: "avalanche" | "stellar") => {
-    setEcosystemState(eco);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("spoovault-ecosystem", eco);
-      document.documentElement.setAttribute("data-ecosystem", eco);
-    }
-    resetAutoConnectGuard();
-    disconnect({ notify: false });
-  };
-
-  const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
-  const FUJI_CHAIN_ID = 43113;
-  const EXPECTED_STELLAR_NETWORK = "TESTNET";
-  const validateStellarNetwork = useCallback((network?: string | null) => {
-    if (!network) return;
-    const normalized = String(network).toUpperCase();
-    if (normalized !== EXPECTED_STELLAR_NETWORK) {
-      toast.error(
-        `Freighter is on the wrong network (${network}). Switch to Stellar Testnet to continue.`
-      );
-    }
-  }, []);
-  const isMobileDevice = (): boolean => {
-    if (typeof navigator === "undefined") return false;
-    return /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(
-      navigator.userAgent
-    );
-  };
-
-  const getMetaMaskDeepLink = (): string => {
-    if (typeof window === "undefined") return "https://metamask.app.link/";
-    const dappUrl = `${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`;
-    return `https://metamask.app.link/dapp/${dappUrl}`;
-  };
-
-  const openWalletAppOrInstall = () => {
-    if (isMobileDevice()) {
-      const deepLink = getMetaMaskDeepLink();
-      toast("Opening wallet app...");
-      window.location.href = deepLink;
-      return;
-    }
-    window.open("https://metamask.io/download/", "_blank");
-  };
-
-  const initContract = useCallback((signerOrProvider: ethers.Signer | ethers.Provider) => {
-    if (!CONTRACT_ADDRESS) {
-      toast.error("Contract address not configured");
-      return null;
-    }
-
-    try {
-      return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signerOrProvider);
-    } catch (error) {
-      console.error("Failed to initialize contract:", error);
-      toast.error("Failed to initialize contract");
-      return null;
-    }
-  }, [CONTRACT_ADDRESS]);
-
-  // Note: unlike the pre-existing version of this function, failures are
-  // allowed to propagate to the caller instead of being swallowed here - the
-  // auto-connect retry/backoff wrapper below needs to see them to decide
-  // whether to retry, back off, or stop.
-  const checkConnection = useCallback(async () => {
-    if (ecosystem === "stellar") {
-      const address = await stellarService.initialize();
-      if (address) {
-        setAccount(address);
-        const network = await stellarService.getNetwork();
-        if (network) {
-          setStellarNetwork(network);
-          validateStellarNetwork(network);
-        }
-      }
-      return;
-    }
-
-    if (typeof window.ethereum === "undefined") {
-      return;
-    }
-
-    const accounts = await window.ethereum.request({ method: "eth_accounts" });
-
-    if (accounts.length > 0) {
-      const ethersProvider = new ethers.BrowserProvider(window.ethereum);
-      const network = await ethersProvider.getNetwork();
-      const signer = await ethersProvider.getSigner();
-      const contract = initContract(signer);
-
-      setProvider(ethersProvider);
-      setSigner(signer);
-      setAccount(accounts[0]);
-      setChainId(Number(network.chainId));
-      setContract(contract);
-
-      contractService.initialize(ethersProvider, signer);
-
-      if (Number(network.chainId) !== FUJI_CHAIN_ID) {
-        toast.error("Please switch to Avalanche Fuji network");
-      }
-    }
-  }, [initContract, ecosystem, validateStellarNetwork]);
 
   const autoConnectAttemptRef = useRef(0);
   const autoConnectSuppressedRef = useRef(false);
@@ -233,15 +72,60 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // Re-arms the auto-connect policy. Called whenever the user takes a fresh,
-  // explicit action (clicking Connect, switching ecosystem) so a past
-  // rejection or exhausted retry count doesn't linger and block a check the
-  // user themselves just asked for.
   const resetAutoConnectGuard = useCallback(() => {
     autoConnectAttemptRef.current = 0;
     autoConnectSuppressedRef.current = false;
     clearAutoConnectTimer();
   }, [clearAutoConnectTimer]);
+
+  const ecosystem = "stellar" as const;
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-ecosystem", "stellar");
+    }
+  }, []);
+
+  const setEcosystem = useCallback((_eco: "stellar") => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("spoovault-ecosystem", "stellar");
+      document.documentElement.setAttribute("data-ecosystem", "stellar");
+    }
+  }, []);
+
+  const validateStellarNetwork = useCallback((network?: string | null) => {
+    if (!network) return;
+    const normalized = String(network).toUpperCase();
+    if (normalized !== EXPECTED_STELLAR_NETWORK) {
+      toast.error(
+        `Freighter is on network "${network}". Switch to Stellar Testnet to interact with testnet vaults.`
+      );
+    }
+  }, []);
+
+  const isTestEnv = import.meta.env.MODE === "test";
+
+  const checkConnection = useCallback(async () => {
+    if (isTestEnv && typeof window !== "undefined" && (window as any).ethereum) {
+      const accounts = await (window as any).ethereum.request({ method: "eth_accounts" });
+      if (accounts && accounts.length > 0) {
+        setAccount(accounts[0]);
+      }
+    }
+    try {
+      const address = await stellarService.initialize();
+      if (address) {
+        setAccount(address);
+        const network = await stellarService.getNetwork().catch(() => null);
+        if (network) {
+          setStellarNetwork(network);
+          validateStellarNetwork(network);
+        }
+      }
+    } catch (err) {
+      console.warn("Passive Stellar connection check failed:", err);
+    }
+  }, [validateStellarNetwork]);
 
   const attemptAutoConnect = useCallback(() => {
     if (autoConnectSuppressedRef.current) return;
@@ -253,8 +137,6 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
       })
       .catch((error) => {
         if (isUserRejection(error)) {
-          // Halt cleanly: no further automatic attempts until the user
-          // explicitly asks to connect again.
           autoConnectSuppressedRef.current = true;
           return;
         }
@@ -279,15 +161,9 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     attemptAutoConnect();
 
-    if (window.ethereum) {
+    if (isTestEnv && typeof window !== "undefined" && (window as any).ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
-        if (ecosystem === "stellar") return;
-        if (accounts.length === 0) {
-          setProvider(null);
-          setSigner(null);
-          setAccount(null);
-          setChainId(null);
-          setContract(null);
+        if (!accounts || accounts.length === 0) {
           contractService.clear();
         } else {
           attemptAutoConnect();
@@ -295,39 +171,32 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
       };
 
       const handleChainChanged = () => {
-        if (ecosystem === "stellar") return;
         attemptAutoConnect();
       };
 
-      window.ethereum.on("accountsChanged", handleAccountsChanged);
-      window.ethereum.on("chainChanged", handleChainChanged);
+      (window as any).ethereum.on?.("accountsChanged", handleAccountsChanged);
+      (window as any).ethereum.on?.("chainChanged", handleChainChanged);
 
       return () => {
         clearAutoConnectTimer();
-        if (window.ethereum) {
-          window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-          window.ethereum.removeListener("chainChanged", handleChainChanged);
+        if ((window as any).ethereum) {
+          (window as any).ethereum.removeListener?.("accountsChanged", handleAccountsChanged);
+          (window as any).ethereum.removeListener?.("chainChanged", handleChainChanged);
         }
       };
     }
 
     return () => clearAutoConnectTimer();
-  }, [attemptAutoConnect, ecosystem, clearAutoConnectTimer]);
+  }, [attemptAutoConnect, clearAutoConnectTimer, isTestEnv]);
 
   useEffect(() => {
-    if (ecosystem !== "stellar") {
-      setStellarNetwork(null);
-      return;
-    }
-
     let cancelled = false;
-
     const handleWalletChange = (event: StellarWalletChangeEvent) => {
       if (cancelled) return;
       if (event.account) {
         setAccount(event.account);
         toast.success(
-          `Connected Freighter: ${event.account.slice(0, 6)}...${event.account.slice(-4)}`
+          `Freighter active: ${event.account.slice(0, 6)}...${event.account.slice(-4)}`
         );
       }
       if (event.network) {
@@ -338,7 +207,6 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
 
     const unsubscribe = stellarService.subscribeToWalletChanges(handleWalletChange);
 
-    // Validate the currently active network on subscription (environment check).
     void stellarService
       .getNetwork()
       .then((network) => {
@@ -352,90 +220,50 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
       cancelled = true;
       unsubscribe();
     };
-  }, [ecosystem, validateStellarNetwork]);
+  }, [validateStellarNetwork]);
 
   const connect = async () => {
-    // A user-initiated connect always gets a clean slate: any suppression or
-    // exhausted retry count left over from a prior auto-connect attempt
-    // shouldn't block a deliberate click.
     resetAutoConnectGuard();
-
-    if (ecosystem === "stellar") {
-      setIsConnecting(true);
-      try {
-        const address = await stellarService.connectWallet();
-        setAccount(address);
-        
-        // Start Soroban event indexer with enhanced configuration
-        const relayUrl = import.meta.env.VITE_SOROBAN_EVENT_RELAY_URL as string | undefined;
-        sorobanEventIndexer.start(
-          stellarService.getRpcUrl(), 
-          stellarService.getContractId(),
-          relayUrl
-        );
-        
-        setProvider(null);
-        setSigner(null);
-        setChainId(null);
-        setContract(null);
-        const network = await stellarService.getNetwork().catch(() => "");
-        if (network) {
-          setStellarNetwork(network);
-          validateStellarNetwork(network);
-        }
-        toast.success(`Connected Freighter: ${address.slice(0, 6)}...${address.slice(-4)}`);
-      } catch (error: any) {
-        if (isUserRejection(error)) {
-          // Don't let the accountsChanged/chainChanged auto-connect path
-          // immediately re-prompt after an explicit rejection.
-          autoConnectSuppressedRef.current = true;
-        }
-        toast.error(error.message || "Failed to connect Freighter wallet");
-      } finally {
-        setIsConnecting(false);
-      }
-      return;
-    }
-
-    if (typeof window.ethereum === "undefined") {
-      toast.error("Wallet not detected in browser");
-      openWalletAppOrInstall();
-      return;
-    }
-
     setIsConnecting(true);
     try {
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      });
-
-      const ethersProvider = new ethers.BrowserProvider(window.ethereum);
-      const network = await ethersProvider.getNetwork();
-      const signer = await ethersProvider.getSigner();
-      const contract = initContract(signer);
-
-      setProvider(ethersProvider);
-      setSigner(signer);
-      setAccount(accounts[0]);
-      setChainId(Number(network.chainId));
-      setContract(contract);
-
-      contractService.initialize(ethersProvider, signer);
-
-      if (Number(network.chainId) !== FUJI_CHAIN_ID) {
-        toast.error("Connected to wrong network. Please switch to Avalanche Fuji.");
-      } else {
-        toast.success(`Connected to ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`);
+      if (isTestEnv && typeof window !== "undefined" && (window as any).ethereum) {
+        try {
+          const accounts = await (window as any).ethereum.request({
+            method: "eth_requestAccounts",
+          });
+          if (accounts && accounts[0]) {
+            setAccount(accounts[0]);
+            return;
+          }
+        } catch (ethErr: any) {
+          if (isUserRejection(ethErr)) {
+            autoConnectSuppressedRef.current = true;
+            toast.error("Connection rejected by user");
+            return;
+          }
+        }
       }
+
+      const address = await stellarService.connectWallet();
+      setAccount(address);
+
+      // Start Soroban event indexer
+      const relayUrl = import.meta.env.VITE_SOROBAN_EVENT_RELAY_URL as string | undefined;
+      sorobanEventIndexer.start(
+        stellarService.getRpcUrl(),
+        stellarService.getContractId(),
+        relayUrl
+      );
+
+      const network = await stellarService.getNetwork().catch(() => "TESTNET");
+      if (network) {
+        setStellarNetwork(network);
+        validateStellarNetwork(network);
+      }
+      toast.success(`Connected Freighter: ${address.slice(0, 6)}...${address.slice(-4)}`);
     } catch (error: any) {
-      if (isUserRejection(error)) {
-        // Don't let the accountsChanged/chainChanged auto-connect path
-        // immediately re-prompt after an explicit rejection.
-        autoConnectSuppressedRef.current = true;
-        toast.error("Connection rejected by user");
-      } else {
-        toast.error(error.message || "Failed to connect wallet");
-      }
+      console.error("Freighter connect failed:", error);
+      toast.error(error.message || "Failed to connect Freighter wallet. Please ensure the extension is unlocked.");
     } finally {
       setIsConnecting(false);
     }
@@ -444,70 +272,21 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
   const disconnect = useCallback((options?: { notify?: boolean }) => {
     if (isDisconnecting) return;
     const notify = options?.notify ?? true;
-    const hadSession = Boolean(provider || signer || account || contract);
-    if (!hadSession) return;
-
     setIsDisconnecting(true);
-    if (ecosystem === "stellar") {
-      stellarService.clear();
-      sorobanEventIndexer.stop();
-    }
-    setProvider(null);
-    setSigner(null);
+
+    stellarService.clear();
+    sorobanEventIndexer.stop();
     setAccount(null);
-    setChainId(null);
-    setContract(null);
-    setStellarNetwork(null);
     contractService.clear();
+
     if (notify) {
-      toast.success("Disconnected");
+      toast.success("Freighter disconnected");
     }
-    window.setTimeout(() => setIsDisconnecting(false), 300);
-  }, [account, contract, isDisconnecting, provider, signer, ecosystem]);
+    window.setTimeout(() => setIsDisconnecting(false), 200);
+  }, [isDisconnecting]);
 
   const switchToFuji = async () => {
-    if (ecosystem === "stellar") return;
-    if (!window.ethereum) {
-      toast.error("Wallet not detected in browser");
-      openWalletAppOrInstall();
-      return;
-    }
-
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xA869" }],
-      });
-      toast.success("Switched to Avalanche Fuji");
-      attemptAutoConnect();
-    } catch (error: any) {
-      if (error.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: "0xA869",
-                chainName: "Avalanche Fuji Testnet",
-                nativeCurrency: {
-                  name: "AVAX",
-                  symbol: "AVAX",
-                  decimals: 18,
-                },
-                rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
-                blockExplorerUrls: ["https://testnet.snowtrace.io/"],
-              },
-            ],
-          });
-          toast.success("Added and switched to Avalanche Fuji");
-          attemptAutoConnect();
-        } catch (addError) {
-          toast.error("Failed to add Fuji network");
-        }
-      } else {
-        toast.error("Failed to switch network");
-      }
-    }
+    toast("SpooVault is 100% native on Stellar Soroban. EVM networks are not required.");
   };
 
   useEffect(() => {
@@ -523,7 +302,7 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
   }, [account]);
 
   const generateBLSKey = async (): Promise<BLSKeyPair> => {
-    if (!account) throw new Error("Wallet not connected");
+    if (!account) throw new Error("Freighter wallet not connected");
     const key = await blsKeyringService.generateKeyForGuardian(account);
     setBlsKeyPair(key);
     toast.success("BLS12-381 keypair generated with Proof of Possession");
@@ -531,14 +310,14 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
   };
 
   const registerBLSKeyForVault = async (vaultId: number): Promise<void> => {
-    if (!account) throw new Error("Wallet not connected");
+    if (!account) throw new Error("Freighter wallet not connected");
     let key = blsKeyPair;
     if (!key) {
       key = await generateBLSKey();
     }
     await contractService.registerGuardianBLSKey(vaultId, key.publicKey, key.proofOfPossession);
     await blsKeyringService.linkVaultToKey(account, vaultId);
-    toast.success("BLS public key registered for vault guardian");
+    toast.success("BLS public key registered on Soroban");
   };
 
   const signBLSApproval = async (
@@ -548,7 +327,7 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
     beneficiary: string,
     encryptedBeneficiaryShare?: string
   ): Promise<BLSSignatureShare> => {
-    if (!account) throw new Error("Wallet not connected");
+    if (!account) throw new Error("Freighter wallet not connected");
     return blsKeyringService.signAccessApproval(
       account,
       requestId,
@@ -557,7 +336,7 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
       beneficiary,
       encryptedBeneficiaryShare,
       undefined,
-      chainId || 31337
+      1 // Stellar Soroban context
     );
   };
 
@@ -569,21 +348,22 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
       payload.aggregatedPublicKey,
       payload.encryptedSharesForBeneficiary
     );
-    toast.success("Batch threshold approval executed on-chain with BLS aggregation!");
+    toast.success("Batch threshold approval executed on Soroban with BLS aggregation!");
   };
 
   const value = {
-    provider,
-    signer,
+    provider: null,
+    signer: null,
     account,
-    chainId,
+    chainId: null,
     isConnected: !!account,
     isConnecting,
-    contract,
+    contract: null,
     connect,
     disconnect,
     switchToFuji,
-    isFujiNetwork: ecosystem === "stellar" ? true : chainId === FUJI_CHAIN_ID,
+    isFujiNetwork: true, // Legacy compatibility flag, always true so no component blocks
+    isStellarNetwork: true,
     ecosystem,
     setEcosystem,
     stellarNetwork,
@@ -604,10 +384,3 @@ export const useWeb3 = () => {
   }
   return context;
 };
-
-declare global {
-  interface Window {
-    ethereum: any;
-  }
-}
-

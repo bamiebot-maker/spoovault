@@ -72,6 +72,7 @@ function App() {
         >
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/docs" element={<DocsPage />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />
@@ -80,7 +81,6 @@ function App() {
               <Route path="/access" element={<AccessCenter />} />
               <Route path="/nfts" element={<NFTGallery />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/docs" element={<DocsPage />} />
             </Route>
           </Routes>
         </Suspense>

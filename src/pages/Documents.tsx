@@ -20,7 +20,6 @@ import {
   FiFile,
   FiShield,
   FiKey,
-  FiAlertCircle,
   FiLoader,
   FiFileText,
 } from "react-icons/fi";
@@ -123,7 +122,7 @@ const Documents = () => {
   } = useDisclosure();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "accessible" | "encrypted">("all");
-  const { account, isConnected, connect, provider, signer, isFujiNetwork, ecosystem } = useWeb3();
+  const { account, isConnected, connect, ecosystem } = useWeb3();
 
   const [documents, setDocuments] = useState<DocumentData[]>([]);
   const [vaults, setVaults] = useState<VaultData[]>([]);
@@ -167,10 +166,7 @@ const Documents = () => {
   }, [ecosystem]);
 
   useEffect(() => {
-    if (isConnected && ((provider && signer && isFujiNetwork) || ecosystem === "stellar")) {
-      if (provider && signer) {
-        contractService.initialize(provider, signer);
-      }
+    if (isConnected && account) {
       loadData();
     } else {
       setUploadableVaults([]);
@@ -179,7 +175,7 @@ const Documents = () => {
       setReleaseConditionByDoc({});
       setLoading(false);
     }
-  }, [account, isConnected, provider, signer, isFujiNetwork, ecosystem]);
+  }, [account, isConnected]);
 
   const loadData = async () => {
     if (!account) {
@@ -614,11 +610,6 @@ const Documents = () => {
       return;
     }
 
-    if (!isFujiNetwork) {
-      toast.error("Please switch to Avalanche Fuji network");
-      return;
-    }
-
     if (!selectedFile) {
       toast.error("Please select a file to upload");
       return;
@@ -945,11 +936,6 @@ const Documents = () => {
       return;
     }
 
-    if (!isFujiNetwork) {
-      toast.error("Please switch to Avalanche Fuji network");
-      return;
-    }
-
     setRequestingDocId(docId);
     try {
       const requestId = await contractService.requestAccess(docId);
@@ -985,9 +971,9 @@ const Documents = () => {
           <div className="w-20 h-20 bg-gradient-to-br from-brand-700 to-brand-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <FiFileText className="text-white text-3xl" />
           </div>
-          <h1 className="text-3xl font-bold mb-4">Connect Your Wallet</h1>
+          <h1 className="text-3xl font-bold mb-4">Connect Freighter Wallet</h1>
           <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Connect your wallet to upload and manage encrypted family documents on Avalanche.
+            Connect your Freighter wallet to upload and manage encrypted documents on Stellar Soroban.
           </p>
           <Button
             size="lg"
@@ -995,33 +981,7 @@ const Documents = () => {
             onPress={connect}
             startContent={<FiUpload />}
           >
-            Connect Wallet
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isFujiNetwork) {
-    return (
-      <div className="space-y-8">
-        <div className="rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 p-8 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <FiAlertCircle className="text-white text-3xl" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Wrong Network</h1>
-          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Please switch to Avalanche Fuji Testnet to manage documents.
-          </p>
-          <Button
-            size="lg"
-            className={buttonClasses.warningLg}
-            onPress={() => window.ethereum && window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: "0xA869" }]
-            })}
-          >
-            Switch to Fuji Network
+            Connect Freighter
           </Button>
         </div>
       </div>
@@ -1455,7 +1415,7 @@ const Documents = () => {
             )}
             <Input
               label="Beneficiary Wallet Address"
-              placeholder="0x..."
+              placeholder="Enter beneficiary's Stellar address (G...)"
               value={shareRecipient}
               onValueChange={setShareRecipient}
               classNames={{

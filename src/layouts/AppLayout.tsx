@@ -8,7 +8,6 @@ import {
   FiKey,
   FiUser,
   FiPlus,
-  FiZap,
   FiMoreHorizontal,
   FiChevronLeft,
   FiChevronRight,
@@ -32,12 +31,6 @@ const AppLayout = () => {
     account,
     isConnected,
     disconnect,
-    isFujiNetwork,
-    switchToFuji,
-    provider,
-    signer,
-    ecosystem,
-    setEcosystem,
   } = useWeb3();
   const [nickname, setNickname] = useState("");
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
@@ -106,18 +99,11 @@ const AppLayout = () => {
     { path: "/docs", label: "Guide", icon: FiBook },
   ];
 
-  const desktopRailItems = navItems.filter((item) => item.path !== "/profile");
-  const desktopProfileItem = navItems.find((item) => item.path === "/profile");
-
   const isActive = (path: string) => location.pathname === path;
 
   const handleCreateVault = () => {
     if (!isConnected) {
-      toast.error("Please connect your wallet first");
-      return;
-    }
-    if (!isFujiNetwork) {
-      toast.error("Please switch to Avalanche Fuji network");
+      toast.error("Please connect your Freighter wallet first");
       return;
     }
     navigate("/vaults?create=true");
@@ -158,47 +144,13 @@ const AppLayout = () => {
         },
       },
       {
-        key: "ecosystem",
-        label: `Switch to ${
-          ecosystem === "avalanche" ? "Stellar" : "Avalanche"
-        }`,
-        tone: "default",
-        onClick: () => {
-          const next = ecosystem === "avalanche" ? "stellar" : "avalanche";
-          setEcosystem(next);
-          toast.success(
-            `Switched to ${
-              next === "avalanche" ? "Avalanche" : "Stellar"
-            } ecosystem`
-          );
-        },
-      },
-      ...(ecosystem === "stellar" || isFujiNetwork
-        ? []
-        : [
-            {
-              key: "switch",
-              label: "Switch to Fuji",
-              tone: "warning" as const,
-              onClick: switchToFuji,
-            },
-          ]),
-      {
         key: "disconnect",
         label: "Disconnect",
         tone: "danger",
         onClick: disconnect,
       },
     ],
-    [
-      account,
-      disconnect,
-      isFujiNetwork,
-      navigate,
-      switchToFuji,
-      ecosystem,
-      setEcosystem,
-    ]
+    [account, disconnect, navigate]
   );
 
   useEffect(() => {
@@ -235,14 +187,7 @@ const AppLayout = () => {
         setPendingApprovalCount(0);
         return;
       }
-      if (ecosystem === "avalanche" && (!provider || !isFujiNetwork)) {
-        setPendingApprovalCount(0);
-        return;
-      }
       try {
-        if (ecosystem === "avalanche") {
-          contractService.initialize(provider!, signer ?? undefined);
-        }
         const approvals =
           await contractService.fetchPendingApprovalsForGuardian(account, 20);
         if (!cancelled) {
@@ -265,10 +210,6 @@ const AppLayout = () => {
   }, [
     account,
     isConnected,
-    provider,
-    signer,
-    isFujiNetwork,
-    ecosystem,
     location.pathname,
   ]);
 
@@ -316,71 +257,108 @@ const AppLayout = () => {
     navigate("/dashboard#approval-queue");
   };
 
-  const canCreateVault = isConnected && isFujiNetwork;
+  const canCreateVault = isConnected;
 
   return (
     <div className="app-shell-bg min-h-screen">
       <OfflineBanner />
       <aside
-        className={`hidden lg:flex fixed left-0 top-0 h-screen border-r border-gray-800/80 bg-gray-950/90 backdrop-blur-2xl z-50 shadow-[18px_0_40px_-34px_rgba(0,0,0,0.95)] transition-[width] duration-300 overflow-visible ${
+        className={`hidden lg:flex fixed left-0 top-0 h-screen border-r border-gray-800/80 bg-gray-950/95 backdrop-blur-2xl z-50 shadow-[18px_0_40px_-34px_rgba(0,0,0,0.95)] transition-[width] duration-300 overflow-visible ${
           desktopSidebarExpanded ? "w-[20rem]" : "w-[4.5rem]"
         }`}
       >
-        <div className="w-[4.5rem] border-r border-gray-800/80 px-2 py-4 flex flex-col items-center">
-          <div className="flex items-center gap-1.5 pb-4">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/90" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/90" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]/90" />
+        {/* Left Icon Rail */}
+        <div className="w-[4.5rem] border-r border-gray-800/80 px-2 py-4 flex flex-col items-center justify-between h-full flex-shrink-0">
+          <div className="w-full flex flex-col items-center">
+            {/* Traffic Dots */}
+            <div className="flex items-center gap-1.5 pb-3">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/90" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/90" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]/90" />
+            </div>
+
+            {/* Row 0: Logo (Height matches Header card: 48px) */}
+            <Tooltip content="Open dashboard" placement="right" delay={150}>
+              <Link to="/dashboard" className="mb-2 group">
+                <div className="w-11 h-12 rounded-xl bg-white/5 border border-gray-700/70 flex items-center justify-center shadow-lg shadow-purple-950/40 group-hover:border-purple-600/60 transition-colors">
+                  <BrandLogo className="w-7 h-7" />
+                </div>
+              </Link>
+            </Tooltip>
+
+            {/* Row 1: Status & Queue Icon (Height matches Status chip: 38px) */}
+            <Tooltip
+              content={
+                pendingApprovalCount > 0
+                  ? `Approval Queue: ${pendingApprovalCount} pending`
+                  : !isConnected
+                  ? "Freighter Disconnected"
+                  : "Stellar Testnet (Soroban)"
+              }
+              placement="right"
+              delay={150}
+            >
+              <button
+                type="button"
+                onClick={openApprovalQueue}
+                className="mb-3 w-11 h-[38px] rounded-xl border border-purple-900/40 bg-purple-950/20 flex items-center justify-center text-purple-300 transition-colors hover:border-purple-600/50"
+              >
+                {pendingApprovalCount > 0 ? (
+                  <div className="relative">
+                    <FiBell className="text-brand-300 text-[15px]" />
+                    <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+                  </div>
+                ) : (
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      !isConnected
+                        ? "bg-gray-500"
+                        : "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                    }`}
+                  />
+                )}
+              </button>
+            </Tooltip>
+
+            {/* Rows 2-9: Navigation Icons (Aligned pixel-for-pixel with right panel items) */}
+            <nav className="w-full space-y-1.5">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                return (
+                  <Tooltip
+                    key={`rail-tooltip-${item.path}`}
+                    content={item.label}
+                    placement="right"
+                    delay={120}
+                  >
+                    <Link
+                      key={`rail-${item.path}`}
+                      to={item.path}
+                      className={`mx-auto flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
+                        active
+                          ? "bg-gradient-to-r from-purple-700/25 to-indigo-600/25 border-purple-500/60 text-purple-300 shadow-[0_4px_16px_-6px_rgba(147,51,234,0.7)]"
+                          : "border-transparent text-gray-500 hover:text-gray-200 hover:border-gray-700/70 hover:bg-gray-900/80"
+                      }`}
+                    >
+                      <Icon className="text-[17px]" />
+                    </Link>
+                  </Tooltip>
+                );
+              })}
+            </nav>
           </div>
 
-          <Tooltip content="Open dashboard" placement="right" delay={150}>
-            <Link to="/dashboard" className="mb-4 group">
-              <div className="w-11 h-11 rounded-xl bg-white/5 border border-gray-700/70 flex items-center justify-center shadow-lg shadow-brand-900/25 group-hover:border-brand-700/45 transition-colors">
-                <BrandLogo className="w-6 h-6" />
-              </div>
-            </Link>
-          </Tooltip>
-
-          <nav className="w-full space-y-2">
-            {desktopRailItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              return (
-                <Tooltip
-                  key={`rail-tooltip-${item.path}`}
-                  content={item.label}
-                  placement="right"
-                  delay={120}
-                >
-                  <Link
-                    key={`rail-${item.path}`}
-                    to={item.path}
-                    className={`mx-auto flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
-                      active
-                        ? "bg-brand-700/22 border-brand-700/55 text-brand-300 shadow-[0_6px_18px_-10px_rgba(220,38,38,0.8)]"
-                        : "border-transparent text-gray-500 hover:text-gray-200 hover:border-gray-700/70 hover:bg-gray-900/80"
-                    }`}
-                  >
-                    <Icon className="text-[17px]" />
-                  </Link>
-                </Tooltip>
-              );
-            })}
-          </nav>
-
-          <div className="mt-3 w-full space-y-2 border-t border-gray-800/70 pt-3">
-            <Tooltip
-              content="Create access vault"
-              placement="right"
-              delay={120}
-            >
+          {/* Bottom Actions: Create Vault & Profile Avatar */}
+          <div className="w-full space-y-2 border-t border-gray-800/70 pt-2 flex flex-col items-center">
+            <Tooltip content="Create access vault" placement="right" delay={120}>
               <Button
                 isIconOnly
                 onPress={handleCreateVault}
                 isDisabled={!canCreateVault}
                 className={`mx-auto w-11 h-11 min-w-11 rounded-xl border ${
                   canCreateVault
-                    ? "border-brand-700/45 bg-brand-700/15 text-brand-300 hover:bg-brand-700/25"
+                    ? "border-purple-600/50 bg-purple-700/20 text-purple-300 hover:bg-purple-700/30 shadow-[0_4px_14px_-6px_rgba(147,51,234,0.6)]"
                     : "border-gray-800/80 bg-gray-900/55 text-gray-600"
                 }`}
                 aria-label="Create access vault"
@@ -389,180 +367,107 @@ const AppLayout = () => {
               </Button>
             </Tooltip>
 
-            {desktopProfileItem && (
-              <Tooltip
-                content={desktopProfileItem.label}
-                placement="right"
-                delay={120}
+            <Tooltip
+              content={isConnected ? displayName : "Connect Wallet"}
+              placement="right"
+              delay={120}
+            >
+              <Link
+                to="/profile"
+                className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-700 to-indigo-900 flex items-center justify-center text-white text-xs font-bold border border-purple-500/40 shadow-md"
               >
-                <Link
-                  to={desktopProfileItem.path}
-                  className={`mx-auto flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
-                    isActive(desktopProfileItem.path)
-                      ? "bg-brand-700/22 border-brand-700/55 text-brand-300"
-                      : "border-transparent text-gray-500 hover:text-gray-200 hover:border-gray-700/70 hover:bg-gray-900/80"
-                  }`}
-                >
-                  <desktopProfileItem.icon className="text-[17px]" />
-                </Link>
-              </Tooltip>
-            )}
+                {account ? account.substring(0, 2).toUpperCase() : <FiUser className="text-[16px]" />}
+              </Link>
+            </Tooltip>
           </div>
         </div>
 
+        {/* Right Expanded Panel (aligned row-for-row with the Left Rail) */}
         {desktopSidebarExpanded && (
-          <div className="flex-1 min-w-0 p-3 flex flex-col">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex-1 min-w-0 rounded-2xl border border-gray-800/80 bg-gray-900/60 px-3 py-3">
-                <p className="text-sm font-semibold truncate">SpooVault</p>
-                <p className="text-xs text-gray-400 truncate">
-                  spoovault.web.app
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={toggleDesktopSidebar}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-700/80 bg-gray-900/85 text-gray-300 hover:border-gray-500 hover:text-white transition-colors"
-                aria-label="Collapse sidebar"
-              >
-                <FiChevronLeft className="text-[15px]" />
-              </button>
-            </div>
-
-            <div className="mt-3 rounded-xl border border-gray-800/80 bg-gray-900/65 px-2 py-2 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between gap-1 bg-black/45 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setEcosystem("avalanche")}
-                  className={`flex-1 py-1.5 text-center text-xs rounded-lg font-semibold transition-all duration-200 ${
-                    ecosystem === "avalanche"
-                      ? "bg-brand-700/80 text-white shadow-md border border-brand-600/30"
-                      : "text-gray-500 hover:text-gray-300"
-                  }`}
-                >
-                  Avalanche
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEcosystem("stellar")}
-                  className={`flex-1 py-1.5 text-center text-xs rounded-lg font-semibold transition-all duration-200 ${
-                    ecosystem === "stellar"
-                      ? "bg-purple-800/80 text-white shadow-md border border-purple-600/30"
-                      : "text-gray-500 hover:text-gray-300"
-                  }`}
-                >
-                  Stellar
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between px-1.5">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full ${
-                      !isConnected
-                        ? "bg-gray-500"
-                        : ecosystem === "stellar"
-                        ? "bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.6)]"
-                        : isFujiNetwork
-                        ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
-                        : "bg-yellow-400"
-                    }`}
-                  />
-                  <p
-                    className={`text-[11px] font-semibold truncate ${
-                      !isConnected
-                        ? "text-gray-400"
-                        : ecosystem === "stellar"
-                        ? "text-purple-300"
-                        : isFujiNetwork
-                        ? "text-green-300"
-                        : "text-yellow-300"
-                    }`}
-                  >
-                    {!isConnected
-                      ? "Wallet Disconnected"
-                      : ecosystem === "stellar"
-                      ? "Stellar Soroban Online"
-                      : isFujiNetwork
-                      ? "Avalanche Fuji Online"
-                      : "Wrong Network"}
+          <div className="flex-1 min-w-0 p-3 flex flex-col justify-between h-full">
+            <div>
+              {/* Row 0: App Title Header & Collapse Button (Height: 48px) */}
+              <div className="h-12 mb-2 flex items-center gap-2">
+                <div className="flex-1 min-w-0 h-12 rounded-xl border border-gray-800/80 bg-gray-900/60 px-3 flex flex-col justify-center">
+                  <p className="text-sm font-bold truncate text-white">SpooVault</p>
+                  <p className="text-[11px] text-purple-300/80 font-medium truncate">
+                    Stellar Soroban Custody
                   </p>
                 </div>
-                {isConnected && ecosystem === "avalanche" && !isFujiNetwork && (
-                  <button
-                    type="button"
-                    onClick={switchToFuji}
-                    className="text-[10px] font-semibold text-yellow-300 hover:text-yellow-200"
-                  >
-                    Switch
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={toggleDesktopSidebar}
+                  className="h-12 w-10 flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-gray-700/80 bg-gray-900/85 text-gray-300 hover:border-gray-500 hover:text-white transition-colors"
+                  aria-label="Collapse sidebar"
+                >
+                  <FiChevronLeft className="text-[16px]" />
+                </button>
               </div>
+
+              {/* Row 1: Network Badge & Approval Queue (Height: 38px) */}
+              <div className="h-[38px] mb-3 flex items-center gap-2">
+                <div className="flex-1 min-w-0 h-full rounded-xl border border-purple-900/40 bg-purple-950/20 px-2.5 flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      !isConnected
+                        ? "bg-gray-500"
+                        : "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                    }`}
+                  />
+                  <p className="text-[11px] font-semibold truncate text-purple-200">
+                    {!isConnected ? "Freighter Disconnected" : "Stellar Testnet"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openApprovalQueue}
+                  className={`h-full px-2.5 rounded-xl border flex items-center gap-1.5 transition-colors text-xs font-medium flex-shrink-0 ${
+                    pendingApprovalCount > 0
+                      ? "border-purple-600/50 bg-purple-700/20 text-purple-200"
+                      : "border-gray-800/80 bg-gray-900/65 text-gray-400 hover:bg-gray-900/85"
+                  }`}
+                >
+                  <FiBell className="text-[13px]" />
+                  <span>{pendingApprovalCount}</span>
+                </button>
+              </div>
+
+              {/* Rows 2-9: Navigation Links (Height: 44px each, space-y-1.5, matching left rail) */}
+              <nav className="space-y-1.5">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={`panel-${item.path}`}
+                      to={item.path}
+                      className={`h-11 flex items-center gap-3 rounded-xl border px-3 transition-all ${
+                        active
+                          ? "border-purple-500/50 bg-gradient-to-r from-purple-700/20 to-indigo-600/15 text-white font-semibold shadow-[0_2px_10px_-4px_rgba(147,51,234,0.5)]"
+                          : "border-transparent text-gray-400 hover:text-gray-100 hover:border-gray-800/80 hover:bg-gray-900/70"
+                      }`}
+                    >
+                      <Icon
+                        className={`text-base ${
+                          active ? "text-purple-300" : "text-gray-500"
+                        }`}
+                      />
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
             </div>
 
-            <button
-              type="button"
-              onClick={openApprovalQueue}
-              className={`mt-2 w-full rounded-xl border px-3 py-2.5 flex items-center justify-between transition-colors ${
-                pendingApprovalCount > 0
-                  ? "border-brand-700/55 bg-brand-700/12 text-brand-200"
-                  : "border-gray-800/80 bg-gray-900/65 text-gray-300 hover:bg-gray-900/85"
-              }`}
-            >
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <FiBell
-                  className={
-                    pendingApprovalCount > 0
-                      ? "text-brand-300"
-                      : "text-gray-500"
-                  }
-                />
-                <span>Approval Queue</span>
-              </span>
-              <span
-                className={`min-w-[1.6rem] h-6 px-2 rounded-full text-xs font-semibold inline-flex items-center justify-center ${
-                  pendingApprovalCount > 0
-                    ? "bg-brand-700/35 text-brand-200"
-                    : "bg-gray-800 text-gray-400"
-                }`}
-              >
-                {pendingApprovalCount}
-              </span>
-            </button>
-
-            <nav className="mt-3 space-y-1.5">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <Link
-                    key={`panel-${item.path}`}
-                    to={item.path}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ${
-                      active
-                        ? "border-gray-700/90 bg-white/10 text-white"
-                        : "border-transparent text-gray-400 hover:text-gray-100 hover:border-gray-800/80 hover:bg-gray-900/70"
-                    }`}
-                  >
-                    <Icon
-                      className={`text-base ${
-                        active ? "text-brand-300" : "text-gray-500"
-                      }`}
-                    />
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <div className="mt-3 pt-3 space-y-3 border-t border-gray-800/70">
+            {/* Bottom Actions: Create Vault & User Profile Card */}
+            <div className="pt-2 border-t border-gray-800/70 space-y-2">
               <Button
                 onPress={handleCreateVault}
                 isDisabled={!canCreateVault}
                 className={
                   canCreateVault
-                    ? `w-full ${buttonClasses.outlineSm}`
-                    : "w-full h-12 rounded-full border border-gray-800/80 bg-gray-900/70 text-gray-500"
+                    ? `w-full h-11 ${buttonClasses.primarySm} shadow-md`
+                    : "w-full h-11 rounded-xl border border-gray-800/80 bg-gray-900/70 text-gray-500 text-xs font-medium"
                 }
                 startContent={<FiPlus className="text-base" />}
               >
@@ -570,16 +475,16 @@ const AppLayout = () => {
               </Button>
 
               {isConnected ? (
-                <div className="flex items-center gap-2.5 rounded-xl border border-gray-800/80 bg-gray-900/70 p-2.5">
+                <div className="flex items-center gap-2.5 rounded-xl border border-gray-800/80 bg-gray-900/70 p-2">
                   <Avatar
-                    className="bg-gradient-to-br from-brand-700 to-brand-900 flex-shrink-0"
+                    className="bg-gradient-to-br from-purple-700 to-indigo-900 flex-shrink-0 text-xs font-bold"
                     name={nickname || account?.substring(2, 6)}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
+                    <p className="text-xs font-semibold truncate text-gray-200">
                       {displayName}
                     </p>
-                    <p className="text-[11px] text-gray-500 truncate">
+                    <p className="text-[10px] text-gray-500 font-mono truncate">
                       {shortenAddress(account || "", 4)}
                     </p>
                   </div>
@@ -593,9 +498,11 @@ const AppLayout = () => {
                         setDesktopMenuOpen((open) => !open);
                         setMobileMenuOpen(false);
                       }}
+                      aria-label="Open profile menu"
                     >
                       <FiMoreHorizontal />
                     </Button>
+
                     {desktopMenuOpen && (
                       <div className="absolute right-0 bottom-10 z-40 w-44 rounded-xl border border-gray-700/80 bg-gray-950/95 p-1 shadow-2xl">
                         {profileMenuItems.map((item) => (
@@ -695,23 +602,10 @@ const AppLayout = () => {
               >
                 <span className="inline-flex w-2.5 h-2.5 rounded-full bg-gray-500 ring-2 ring-gray-500/20" />
               </Tooltip>
-            ) : ecosystem === "stellar" ? (
-              <Tooltip content="Stellar Soroban" placement="bottom" delay={120}>
-                <span className="inline-flex w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-500/25" />
-              </Tooltip>
-            ) : isFujiNetwork ? (
-              <Tooltip content="Avalanche Fuji" placement="bottom" delay={120}>
-                <span className="inline-flex w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-green-500/25" />
-              </Tooltip>
             ) : (
-              <Button
-                isIconOnly
-                size="sm"
-                onPress={switchToFuji}
-                className="w-8 h-8 min-w-8 rounded-xl border border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
-              >
-                <FiZap className="text-[14px]" />
-              </Button>
+              <Tooltip content="Connected: Stellar Soroban Testnet" placement="bottom" delay={120}>
+                <span className="inline-flex w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/25 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+              </Tooltip>
             )}
             {isConnected ? (
               <div className="relative" ref={mobileMenuRef}>

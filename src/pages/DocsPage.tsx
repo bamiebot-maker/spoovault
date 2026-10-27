@@ -1,545 +1,758 @@
-import { useState } from "react";
-import { Card, CardBody, CardHeader, Chip } from "@heroui/react";
+import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   FiBook,
   FiCode,
   FiTerminal,
   FiShield,
-  FiGitPullRequest,
   FiCheckCircle,
   FiExternalLink,
-  FiLayers,
   FiCpu,
   FiCopy,
-  FiServer,
-  FiChevronDown,
-  FiChevronUp,
+  FiSearch,
+  FiKey,
+  FiLock,
+  FiActivity,
+  FiUsers,
+  FiArrowRight,
+  FiMenu,
+  FiX,
+  FiAward,
 } from "react-icons/fi";
 import { toast } from "react-hot-toast";
-import { buttonClasses } from "../utils/buttonClasses";
+import BrandLogo from "../components/BrandLogo";
+
+const STELLAR_CONTRACT_ID = "CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B";
+const STELLAR_TESTNET_EXPLORER = `https://stellar.expert/explorer/testnet/contract/${STELLAR_CONTRACT_ID}`;
 
 export default function DocsPage() {
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "setup" | "contracts" | "testing" | "grantfox"
-  >("overview");
-  const [openStep, setOpenStep] = useState<number | null>(1);
+  const [activeSection, setActiveSection] = useState<string>("overview");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
+    toast.success(`${label} copied to clipboard!`);
   };
 
-  const toggleStep = (step: number) => {
-    setOpenStep((prev) => (prev === step ? null : step));
-  };
-
-  const steps = [
+  const navGroups = [
     {
-      id: 1,
-      title: "1. Claim an Issue on GrantFox",
-      content:
-        "Browse active issues on the GrantFox dashboard or GitHub issue tracker. Apply to the issue and wait for official assignment before commencing development work.",
+      title: "Getting Started",
+      items: [
+        { id: "overview", label: "Protocol Overview", icon: FiBook },
+        { id: "problem", label: "The Dead Man's Switch", icon: FiActivity },
+        { id: "architecture", label: "System Architecture", icon: FiCpu },
+      ],
     },
     {
-      id: 2,
-      title: "2. Adhere to Code Style & Design Tokens",
-      content:
-        "Maintain existing HeroUI and Tailwind CSS design tokens. Ensure accessibility (WCAG 2.1 AA), proper ARIA labeling, and responsive design across mobile and desktop viewports.",
+      title: "Cryptography & Security",
+      items: [
+        { id: "cryptography", label: "ECIES & SSS Encryption", icon: FiLock },
+        { id: "passkeys", label: "WebAuthn & Passkeys", icon: FiKey },
+        { id: "security", label: "Security & Threat Model", icon: FiShield },
+      ],
     },
     {
-      id: 3,
-      title: "3. Link PR to GrantFox Issue",
-      content:
-        "Include Closes #IssueNumber in your Pull Request description so GrantFox automated webhooks track your milestone completion.",
+      title: "Soroban Smart Contracts",
+      items: [
+        { id: "contract-overview", label: "Contract Reference", icon: FiCode },
+        { id: "methods", label: "Core Methods & API", icon: FiTerminal },
+        { id: "storage-ttl", label: "State & TTL Rent Bumping", icon: FiShield },
+      ],
     },
     {
-      id: 4,
-      title: "4. Provide Verification Evidence",
-      content:
-        "Attach screenshots/videos for UI changes and include passing test results from npm test.",
+      title: "Development & Testing",
+      items: [
+        { id: "testing", label: "Test Suites (94 Rust / 918 Vitest)", icon: FiCheckCircle },
+        { id: "deployment", label: "Deployment & Verification", icon: FiTerminal },
+      ],
+    },
+    {
+      title: "Ecosystem & Governance",
+      items: [
+        { id: "grants", label: "Drips Wave & SCF Grant", icon: FiAward },
+        { id: "maintainers", label: "Maintainers & Community", icon: FiUsers },
+      ],
     },
   ];
 
-  return (
-    <div className="space-y-8 pb-12">
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-gray-800 bg-gradient-to-br from-gray-950 via-gray-900 to-black p-6 md:p-10 shadow-2xl">
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-brand-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 space-y-4 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand-500/30 bg-brand-500/10 text-brand-300 text-xs font-semibold">
-            <FiBook className="text-sm" />
-            <span>Developer & Contributor Hub</span>
-          </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white font-display">
-            SpooVault Documentation
-          </h1>
-          <p className="text-gray-400 text-sm md:text-base leading-relaxed">
-            Welcome contributors! SpooVault is an open-source decentralized
-            document custody protocol supporting dual-chain infrastructure on{" "}
-            <span className="text-red-400 font-medium">Avalanche (EVM)</span>{" "}
-            and{" "}
-            <span className="text-purple-400 font-medium">
-              Stellar (Soroban)
-            </span>
-            . Use this guide to start building, running tests, and submitting
-            contributions.
-          </p>
+  const filteredGroups = useMemo(() => {
+    if (!searchQuery.trim()) return navGroups;
+    const q = searchQuery.toLowerCase();
+    return navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(q) ||
+            item.id.toLowerCase().includes(q)
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [searchQuery]);
 
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+  return (
+    <div className="min-h-screen bg-[#07060B] text-gray-200 font-sans selection:bg-purple-600/30 selection:text-purple-200">
+      {/* Top Docs Header */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#090710]/90 border-b border-purple-900/20 px-4 lg:px-8 py-3.5 transition-all">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          {/* Logo & Badge */}
+          <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <BrandLogo className="w-8 h-8" />
+              <div className="flex flex-col">
+                <span className="text-lg font-bold tracking-tight text-white group-hover:text-purple-300 transition-colors">
+                  SpooVault <span className="text-purple-400 font-mono text-sm font-normal">Docs</span>
+                </span>
+                <span className="text-[10px] text-gray-400 font-mono tracking-wider uppercase">
+                  Stellar Soroban Native
+                </span>
+              </div>
+            </Link>
+
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Testnet Protocol 22
+            </span>
+          </div>
+
+          {/* Search Box */}
+          <div className="flex-1 max-w-md hidden sm:block">
+            <div className="relative">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search documentation, methods, cryptographic specs..."
+                className="w-full bg-[#110D1D]/90 border border-purple-900/30 rounded-xl pl-9 pr-4 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/40 transition-all font-mono"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-300"
+                >
+                  <FiX />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="flex items-center gap-2.5">
             <a
               href="https://github.com/spoo-vault/spoovault"
               target="_blank"
               rel="noopener noreferrer"
-              className={buttonClasses.primarySm}
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-300 hover:text-white bg-purple-950/30 hover:bg-purple-900/40 border border-purple-800/30 transition-all"
             >
-              <FiCode className="text-base" />
-              <span>GitHub Repository</span>
-              <FiExternalLink className="text-xs ml-1" />
+              <FiCode className="text-sm" />
+              <span>GitHub</span>
+              <FiExternalLink className="text-[10px] text-gray-500" />
             </a>
+
             <a
-              href="https://grantfox.com"
+              href={STELLAR_TESTNET_EXPLORER}
               target="_blank"
               rel="noopener noreferrer"
-              className={buttonClasses.outlineSm}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-medium text-emerald-300 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-800/30 transition-all"
             >
-              <FiGitPullRequest className="text-base text-brand-400" />
-              <span>GrantFox Platform</span>
-              <FiExternalLink className="text-xs ml-1" />
+              <span>Contract Explorer</span>
+              <FiExternalLink className="text-[10px]" />
             </a>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Tab Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-gray-800/80">
-        {[
-          { id: "overview", label: "Architecture Overview", icon: FiLayers },
-          { id: "setup", label: "Local Setup", icon: FiTerminal },
-          { id: "contracts", label: "Smart Contracts", icon: FiCpu },
-          { id: "testing", label: "Testing Suite", icon: FiCheckCircle },
-          {
-            id: "grantfox",
-            label: "GrantFox Contribution Guide",
-            icon: FiShield,
-          },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap border ${
-                isActive
-                  ? "bg-brand-700/20 border-brand-500/50 text-white shadow-lg shadow-brand-900/20"
-                  : "bg-gray-900/50 border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800/60"
-              }`}
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-md shadow-purple-900/30 transition-all"
             >
-              <Icon className={isActive ? "text-brand-400" : "text-gray-500"} />
-              <span>{tab.label}</span>
+              <span>Launch App</span>
+              <FiArrowRight className="text-xs" />
+            </Link>
+
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-xl text-gray-400 hover:text-white bg-purple-950/20 border border-purple-900/30"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <FiX size={18} /> : <FiMenu size={18} />}
             </button>
-          );
-        })}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8 flex gap-8">
+        {/* Left Sticky Sidebar */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 w-72 bg-[#090710] border-r border-purple-900/20 p-6 overflow-y-auto transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:w-64 md:shrink-0 md:bg-transparent md:border-r-0 md:p-0 ${
+            mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {/* Mobile Search */}
+          <div className="sm:hidden mb-6">
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search docs..."
+                className="w-full bg-[#110D1D] border border-purple-900/30 rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-200"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {filteredGroups.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <div className="text-[11px] font-mono font-semibold uppercase tracking-wider text-purple-400/70 px-2">
+                  {group.title}
+                </div>
+                <nav className="space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeSection === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveSection(item.id);
+                          setMobileMenuOpen(false);
+                          document
+                            .getElementById(item.id)
+                            ?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left ${
+                          isActive
+                            ? "bg-purple-600/20 text-purple-200 border border-purple-500/30 font-semibold shadow-sm"
+                            : "text-gray-400 hover:text-gray-200 hover:bg-purple-950/20"
+                        }`}
+                      >
+                        <Icon className={`text-sm ${isActive ? "text-purple-400" : "text-gray-500"}`} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            ))}
+          </div>
+
+          {/* Contract ID Quick Card */}
+          <div className="mt-8 p-3 rounded-xl bg-purple-950/20 border border-purple-800/20 space-y-2">
+            <div className="text-[10px] font-mono text-purple-300 font-semibold uppercase">
+              Live Testnet Contract
+            </div>
+            <div className="font-mono text-[10px] text-gray-400 break-all select-all bg-[#0a0713] p-1.5 rounded border border-purple-900/30">
+              {STELLAR_CONTRACT_ID}
+            </div>
+            <button
+              onClick={() => copyToClipboard(STELLAR_CONTRACT_ID, "Contract ID")}
+              className="w-full flex items-center justify-center gap-1.5 py-1 text-[11px] font-medium text-purple-300 hover:text-purple-200 bg-purple-900/30 hover:bg-purple-900/50 rounded transition-all"
+            >
+              <FiCopy className="text-xs" />
+              <span>Copy Contract ID</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Right Documentation Content */}
+        <main className="flex-1 min-w-0 space-y-16 pb-20">
+          {/* Section: Overview */}
+          <section id="overview" className="space-y-6 scroll-mt-24">
+            <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-purple-950/30 via-gray-900/40 to-black border border-purple-800/30 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                  <FiBook className="text-xs" /> Protocol Architecture
+                </span>
+                <h1 className="text-2xl md:text-4xl font-extrabold text-white tracking-tight">
+                  SpooVault Documentation & Engineering Specifications
+                </h1>
+                <p className="text-sm md:text-base text-gray-300 leading-relaxed max-w-3xl">
+                  SpooVault is an autonomous, decentralized document custody and inheritance protocol natively engineered on{" "}
+                  <strong className="text-purple-300">Stellar Soroban (Rust)</strong>. It provides trustless Dead Man&apos;s Switch mechanisms, Shamir&apos;s Secret Sharing (SSS) Guardian consensus, ECIES client-side payload encryption, and passkey authentication for resilient digital legacy preservation.
+                </p>
+
+                <div className="grid sm:grid-cols-3 gap-3 pt-2">
+                  <div className="p-3.5 rounded-xl bg-[#0c0918]/80 border border-purple-900/30">
+                    <div className="text-xs font-mono text-gray-400">Ledger Native</div>
+                    <div className="text-sm font-semibold text-white mt-1">Stellar Soroban (Rust)</div>
+                    <div className="text-[11px] text-purple-300/80 mt-0.5">Zero EVM or Avalanche remnants</div>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-[#0c0918]/80 border border-purple-900/30">
+                    <div className="text-xs font-mono text-gray-400">Autonomous Switch</div>
+                    <div className="text-sm font-semibold text-white mt-1">Proof-of-Life Heartbeats</div>
+                    <div className="text-[11px] text-purple-300/80 mt-0.5">Authorizable Keeper Relays</div>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-[#0c0918]/80 border border-purple-900/30">
+                    <div className="text-xs font-mono text-gray-400">Cryptographic Privacy</div>
+                    <div className="text-sm font-semibold text-white mt-1">Client-Side ECIES + SSS</div>
+                    <div className="text-[11px] text-purple-300/80 mt-0.5">k-of-n Guardian recovery</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Problem & Solution */}
+          <section id="problem" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiActivity className="text-purple-400" />
+              The Dead Man&apos;s Switch Problem & Soroban Advantage
+            </h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Billions of dollars in digital assets, legal credentials, private keys, and critical company documents are permanently lost every year due to sudden incapacitation or demise of single keyholders. Centralized custody solutions reintroduce counterparty failure, custodial seizure, and single-point-of-compromise vulnerabilities.
+            </p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-red-950/10 border border-red-900/30 space-y-2">
+                <div className="text-xs font-bold font-mono text-red-400 uppercase">
+                  Traditional / Centralized Custody Flaws
+                </div>
+                <ul className="text-xs text-gray-300 space-y-1.5 list-disc list-inside">
+                  <li>Custodians hold unencrypted plaintext or server-side keys.</li>
+                  <li>Subject to arbitrary account freeze, KYC lockouts, or insolvency.</li>
+                  <li>Inflexible inheritance requiring prolonged probate court orders.</li>
+                  <li>Expensive recurring maintenance fees regardless of usage.</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-emerald-950/10 border border-emerald-900/30 space-y-2">
+                <div className="text-xs font-bold font-mono text-emerald-400 uppercase">
+                  SpooVault on Stellar Soroban
+                </div>
+                <ul className="text-xs text-gray-300 space-y-1.5 list-disc list-inside">
+                  <li>Pure smart contract custody executed transparently on Stellar Testnet.</li>
+                  <li>Sub-second settlement and fractions of a cent per heartbeat transaction.</li>
+                  <li>Authorized Keepers can submit heartbeats on behalf of offline creators without gaining vault access.</li>
+                  <li>Shamir&apos;s Secret Sharing distributes key shards across independent Guardians.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Architecture */}
+          <section id="architecture" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiCpu className="text-purple-400" />
+              System Architecture & Lifecycle
+            </h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              SpooVault combines on-chain state coordination via Soroban with off-chain cryptographic storage powered by IPFS (Pinata) and WebAuthn authenticators:
+            </p>
+
+            <div className="p-4 rounded-xl bg-[#0b0817] border border-purple-900/30 font-mono text-xs text-purple-300 space-y-2 overflow-x-auto">
+              <div className="text-gray-400">// High-level lifecycle flow:</div>
+              <div>[1. Creator] ==(ECIES Encrypt Document)==&gt; [IPFS CID]</div>
+              <div>[2. Creator] ==(register_vault(timeout, guardians, ipfs_cid))==&gt; [Soroban Contract]</div>
+              <div>[3. Periodic] ==(prove_life() or authorized keeper relay)==&gt; [Resets Heartbeat Timer]</div>
+              <div>[4. Expiration] ==(Time &gt; LastHeartbeat + Timeout)==&gt; [Status: EMERGENCY_RELEASE]</div>
+              <div>[5. Beneficiary] ==(request_access() + Guardian SSS Shard Aggregation)==&gt; [Decrypted Assets]</div>
+            </div>
+          </section>
+
+          {/* Section: Cryptography */}
+          <section id="cryptography" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiLock className="text-purple-400" />
+              Cryptographic Specification: ECIES & SSS
+            </h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              SpooVault enforces zero-knowledge architecture. Neither the Stellar validators, the contract deployer, nor the IPFS gateways ever have access to unencrypted file content or private keys.
+            </p>
+
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-[#0d091a] border border-purple-900/20 space-y-2">
+                <div className="text-sm font-bold text-white">1. Client-Side ECIES Payload Encryption</div>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  Documents are encrypted in the user&apos;s browser using AES-256-GCM with a freshly generated ephemeral 256-bit symmetric key. The symmetric key is then encrypted via Elliptic Curve Integrated Encryption Scheme (ECIES) using the creator&apos;s public key and the designated beneficiaries&apos; public keys.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#0d091a] border border-purple-900/20 space-y-2">
+                <div className="text-sm font-bold text-white">2. Shamir&apos;s Secret Sharing (SSS) Guardian Consensus</div>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  For high-value vaults, the master decryption key is split into <code className="text-purple-300 font-mono">n</code> polynomial shards with a threshold requirement of <code className="text-purple-300 font-mono">k</code> shards (<code className="text-purple-300 font-mono">k &lt;= n</code>). Each Guardian receives an individually encrypted shard. When emergency mode triggers, a quorum of <code className="text-purple-300 font-mono">k</code> guardians must approve before the reconstruction key is assembled.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Passkeys */}
+          <section id="passkeys" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiKey className="text-purple-400" />
+              WebAuthn & Hardware Passkey Integration
+            </h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              SpooVault integrates native FIDO2 / WebAuthn hardware biometric signing (Apple TouchID, FaceID, Windows Hello, YubiKey). Passkeys eliminate seed-phrase loss vulnerability for non-technical users while providing hardware-isolated cryptographic keypairs.
+            </p>
+            <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-800/30 text-xs text-gray-300 space-y-1">
+              <div className="font-semibold text-purple-200">Session Lock Gate & Privacy Guard</div>
+              <p>
+                The frontend implements automatic inactivity session locking (<code className="text-purple-300 font-mono">15m idle</code>). When triggered, volatile cryptographic keys in memory are scrubbed, requiring biometric or wallet authentication to restore the session.
+              </p>
+            </div>
+          </section>
+
+          {/* Section: Contract Reference */}
+          <section id="contract-overview" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiCode className="text-purple-400" />
+              Soroban Smart Contract Reference
+            </h2>
+            <div className="p-4 rounded-xl bg-[#0a0714] border border-purple-900/40 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-mono text-purple-300 font-bold uppercase">
+                  Active Deployment Contract ID
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40 font-mono">
+                  Verified on Stellar Testnet
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-[#050409] p-2.5 rounded-lg border border-purple-900/30">
+                <code className="text-xs font-mono text-purple-200 break-all select-all flex-1">
+                  {STELLAR_CONTRACT_ID}
+                </code>
+                <button
+                  onClick={() => copyToClipboard(STELLAR_CONTRACT_ID, "Contract ID")}
+                  className="px-2.5 py-1 text-xs font-mono font-medium text-purple-300 hover:text-white bg-purple-900/30 hover:bg-purple-800/40 rounded transition-all shrink-0"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Methods */}
+          <section id="methods" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiTerminal className="text-purple-400" />
+              Core Contract Methods
+            </h2>
+            <div className="space-y-4">
+              {/* Method 1 */}
+              <div className="p-4 rounded-xl bg-[#0b0816] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <code className="text-sm font-mono font-bold text-purple-300">
+                    create_vault(e: Env, creator: Address, heartbeat_timeout: u64, name: String) -&gt; u64
+                  </code>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-800/30">
+                    Write
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300">
+                  Initializes a new Dead Man&apos;s Switch vault on the Stellar ledger. Sets initial heartbeat timestamp to current ledger time and returns the newly assigned numeric Vault ID.
+                </p>
+              </div>
+
+              {/* Method 2 */}
+              <div className="p-4 rounded-xl bg-[#0b0816] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <code className="text-sm font-mono font-bold text-purple-300">
+                    prove_life(e: Env, vault_id: u64, caller: Address)
+                  </code>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-800/30">
+                    Write
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300">
+                  Resets the heartbeat timer. Can be invoked directly by the vault creator (authenticated via <code className="text-purple-300 font-mono">caller.require_auth()</code>) or by an authorized Keeper relaying a signed heartbeat nonce.
+                </p>
+              </div>
+
+              {/* Method 3 */}
+              <div className="p-4 rounded-xl bg-[#0b0816] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <code className="text-sm font-mono font-bold text-purple-300">
+                    authorize_keeper(e: Env, vault_id: u64, keeper: Address, valid_until: u64)
+                  </code>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-800/30">
+                    Write
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300">
+                  Grants an automated background relay agent (Keeper) the permission to submit <code className="text-purple-300 font-mono">prove_life()</code> on behalf of the creator without granting read or transfer privileges over vault documents.
+                </p>
+              </div>
+
+              {/* Method 4 */}
+              <div className="p-4 rounded-xl bg-[#0b0816] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <code className="text-sm font-mono font-bold text-purple-300">
+                    add_document(e: Env, vault_id: u64, ipfs_cid: String, doc_hash: BytesN&lt;32&gt;)
+                  </code>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-800/30">
+                    Write
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300">
+                  Binds an encrypted IPFS content identifier (CID) and cryptographic sha256 checksum to the vault custody record.
+                </p>
+              </div>
+
+              {/* Method 5 */}
+              <div className="p-4 rounded-xl bg-[#0b0816] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <code className="text-sm font-mono font-bold text-purple-300">
+                    request_access(e: Env, vault_id: u64, beneficiary: Address) -&gt; bool
+                  </code>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-800/30">
+                    Read/Write
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300">
+                  Verifies if the heartbeat timeout has elapsed. If true, unlocks access for the registered beneficiary address and logs an on-chain release audit event.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Storage & TTL */}
+          <section id="storage-ttl" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiShield className="text-purple-400" />
+              Soroban State & TTL Rent Bumping
+            </h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Soroban uses state archival and Time-To-Live (TTL) rent to maintain high network throughput. SpooVault implements automatic TTL extension logic on every heartbeat to ensure vault records and cryptographic commitments never get archived into cold storage:
+            </p>
+            <div className="p-4 rounded-xl bg-[#080612] border border-purple-900/30 font-mono text-xs text-purple-300">
+              <pre className="whitespace-pre-wrap">
+{`// Automatic TTL rent bump in contracts-stellar/src/lib.rs
+e.storage().instance().extend_ttl(
+    INSTANCE_LIFETIME_THRESHOLD, // 518,400 ledgers (~30 days)
+    INSTANCE_BUMP_AMOUNT         // 1,036,800 ledgers (~60 days)
+);`}
+              </pre>
+            </div>
+          </section>
+
+          {/* Section: Testing & Verification */}
+          <section id="testing" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiCheckCircle className="text-emerald-400" />
+              Testing & Quality Verification (94 Rust / 918 Vitest)
+            </h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              SpooVault maintains 100% test coverage across both smart contracts and frontend cryptographic modules.
+            </p>
+
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-[#090713] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-semibold text-purple-300">
+                    1. Run Soroban Smart Contract Tests (Rust)
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400">94 / 94 Passing</span>
+                </div>
+                <div className="bg-[#040308] p-2.5 rounded border border-purple-900/20 font-mono text-xs text-gray-300 flex items-center justify-between">
+                  <code>cargo test --manifest-path contracts-stellar/Cargo.toml</code>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        "cargo test --manifest-path contracts-stellar/Cargo.toml",
+                        "Rust test command"
+                      )
+                    }
+                    className="text-purple-400 hover:text-white"
+                  >
+                    <FiCopy />
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  Tests vault creation, heartbeat timeouts, authorized keeper delegation, cross-chain identity resolution, and emergency unlock consensus.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#090713] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-semibold text-purple-300">
+                    2. Run Frontend & ECIES/SSS Vitest Suite
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400">70 Suites / 918 Passing</span>
+                </div>
+                <div className="bg-[#040308] p-2.5 rounded border border-purple-900/20 font-mono text-xs text-gray-300 flex items-center justify-between">
+                  <code>npm test -- --run</code>
+                  <button
+                    onClick={() => copyToClipboard("npm test -- --run", "Vitest test command")}
+                    className="text-purple-400 hover:text-white"
+                  >
+                    <FiCopy />
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  Verifies client-side ECIES encryption, Shamir Secret Sharing shard recovery, SessionLockGate privacy guards, and Stellar SDK transactions.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#090713] border border-purple-900/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-semibold text-purple-300">
+                    3. Run Live Stellar Testnet Smoke Check
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400">On-Chain Verified</span>
+                </div>
+                <div className="bg-[#040308] p-2.5 rounded border border-purple-900/20 font-mono text-xs text-gray-300 flex items-center justify-between">
+                  <code>npm run test:smoke</code>
+                  <button
+                    onClick={() => copyToClipboard("npm run test:smoke", "Smoke test command")}
+                    className="text-purple-400 hover:text-white"
+                  >
+                    <FiCopy />
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  Directly verifies Soroban RPC health, Horizon testnet connectivity, and the active SpooVault contract instance on Stellar Testnet.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Deployment */}
+          <section id="deployment" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiTerminal className="text-purple-400" />
+              Deployment & Reproduction Guide
+            </h2>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              To deploy your own instance of the SpooVault Soroban contract to Stellar Testnet:
+            </p>
+            <div className="p-4 rounded-xl bg-[#06040d] border border-purple-900/30 font-mono text-xs text-gray-300 space-y-3">
+              <div>
+                <span className="text-purple-400"># 1. Compile WASM bytecode:</span>
+                <div className="text-gray-200 mt-0.5">cargo build --manifest-path contracts-stellar/Cargo.toml --target wasm32-unknown-unknown --release</div>
+              </div>
+              <div>
+                <span className="text-purple-400"># 2. Optimize & normalize WASM (disables reference-types for Soroban Host VM):</span>
+                <div className="text-gray-200 mt-0.5">node scripts/optimize-wasm.mjs</div>
+              </div>
+              <div>
+                <span className="text-purple-400"># 3. Deploy to Stellar Testnet via SDK 17 & Horizon:</span>
+                <div className="text-gray-200 mt-0.5">node scripts/deploy-stellar.mjs</div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Grants */}
+          <section id="grants" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiAward className="text-purple-400" />
+              Drips Wave & Stellar Community Fund (SCF)
+            </h2>
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 to-indigo-950/40 border border-purple-800/40 space-y-3">
+              <div className="text-sm font-bold text-purple-200">
+                Grant Fox & Open Source Sponsorship Compliance
+              </div>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                SpooVault is built as a public good for the Stellar ecosystem. Contributions, milestone tracking, and contributor bounties are coordinated through Drips Wave and the Stellar Community Fund.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <a
+                  href="https://drips.network"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-200 bg-purple-900/30 hover:bg-purple-800/40 border border-purple-700/30 inline-flex items-center gap-1.5"
+                >
+                  <span>Drips Wave Profile</span>
+                  <FiExternalLink className="text-[10px]" />
+                </a>
+                <a
+                  href="https://communityfund.stellar.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-200 bg-purple-900/30 hover:bg-purple-800/40 border border-purple-700/30 inline-flex items-center gap-1.5"
+                >
+                  <span>Stellar Community Fund</span>
+                  <FiExternalLink className="text-[10px]" />
+                </a>
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Maintainers */}
+          <section id="maintainers" className="space-y-4 scroll-mt-24">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <FiUsers className="text-purple-400" />
+              Maintainers & Contributors
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-[#090714] border border-purple-900/30 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white text-sm">
+                  OF
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white">Ope Fawaz</div>
+                  <div className="text-xs text-purple-300">Co-Founder & Protocol Architect</div>
+                  <a
+                    href="https://github.com/opefawaz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 mt-0.5"
+                  >
+                    <span>@opefawaz</span>
+                    <FiExternalLink className="text-[9px]" />
+                  </a>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#090714] border border-purple-900/30 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-emerald-600 flex items-center justify-center font-bold text-white text-sm">
+                  BT
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white">Bamigboye Timothy</div>
+                  <div className="text-xs text-purple-300">Lead Full-Stack & Cryptography Engineer</div>
+                  <a
+                    href="https://github.com/bamigboyetimothy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 mt-0.5"
+                  >
+                    <span>@bamigboyetimothy</span>
+                    <FiExternalLink className="text-[9px]" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Bottom Callout */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-purple-900/20 via-indigo-900/20 to-purple-900/20 border border-purple-800/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <div className="text-base font-bold text-white">Ready to safeguard your legacy?</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Launch the application and test the Dead Man&apos;s Switch on Stellar Testnet.
+              </div>
+            </div>
+            <Link
+              to="/dashboard"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-lg shadow-purple-900/40 transition-all shrink-0"
+            >
+              Open SpooVault App
+            </Link>
+          </div>
+        </main>
       </div>
 
-      {/* Tab 1: Architecture Overview */}
-      {activeTab === "overview" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-gray-900/60 border border-gray-800 rounded-2xl">
-              <CardBody className="p-6 space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-brand-500/10 border border-brand-500/30 flex items-center justify-center text-brand-400 text-xl">
-                  <FiShield />
-                </div>
-                <h3 className="text-lg font-bold text-white font-display">
-                  Zero-Knowledge Client Encryption
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed">
-                  Files are encrypted entirely client-side using AES-256 and
-                  TweetNaCl X25519 before being uploaded to IPFS. Keys never
-                  touch backend servers unencrypted.
-                </p>
-              </CardBody>
-            </Card>
-
-            <Card className="bg-gray-900/60 border border-gray-800 rounded-2xl">
-              <CardBody className="p-6 space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl">
-                  <FiCpu />
-                </div>
-                <h3 className="text-lg font-bold text-white font-display">
-                  Multi-Chain Protocol
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed">
-                  Supports dual-chain smart contract infrastructure: Solidity
-                  0.8.20 on Avalanche EVM Fuji and Soroban Rust SDK on Stellar
-                  Soroban network.
-                </p>
-              </CardBody>
-            </Card>
-
-            <Card className="bg-gray-900/60 border border-gray-800 rounded-2xl">
-              <CardBody className="p-6 space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xl">
-                  <FiServer />
-                </div>
-                <h3 className="text-lg font-bold text-white font-display">
-                  Guardian Multi-Sig & Dead-Man's Switch
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed">
-                  Distributes key packages across trusted guardians requiring
-                  threshold approval, or automatically releases documents upon
-                  proof-of-life inactivity timeout.
-                </p>
-              </CardBody>
-            </Card>
+      {/* Standalone Docs Footer */}
+      <footer className="border-t border-purple-900/20 bg-[#050409] py-8 px-4 lg:px-8 text-center text-xs text-gray-500">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <BrandLogo className="w-5 h-5" />
+            <span className="text-gray-400 font-medium">SpooVault Documentation</span>
+            <span className="text-gray-600">&bull;</span>
+            <span className="text-gray-500">Stellar Soroban Network</span>
           </div>
 
-          <Card className="bg-gray-900/70 border border-gray-800 rounded-2xl">
-            <CardHeader className="px-6 pt-6 pb-2">
-              <h2 className="text-xl font-bold text-white font-display">
-                System Architecture Diagram
-              </h2>
-            </CardHeader>
-            <CardBody className="px-6 pb-6">
-              <div className="bg-gray-950 p-6 rounded-xl border border-gray-800 font-mono text-xs text-gray-300 overflow-x-auto space-y-2">
-                <p className="text-brand-400 font-semibold">
-                  // SpooVault Technical Component Flow
-                </p>
-                <pre>{`
-[ User Browser ]
-   │
-   ├─► [ AES-256 / TweetNaCl Encryption ] ──► [ Encrypted Blob ] ──► [ IPFS / Pinata Gateway ]
-   │
-   ├─► [ Avalanche Fuji EVM Contract ] ──────► [ On-Chain Vault Metadata & Multi-Sig Thresholds ]
-   │
-   └─► [ Stellar Soroban Rust Contract ] ────► [ Soroban Persistent Storage & Access Releases ]
-                `}</pre>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
-
-      {/* Tab 2: Local Setup */}
-      {activeTab === "setup" && (
-        <div className="space-y-6">
-          <Card className="bg-gray-900/70 border border-gray-800 rounded-2xl">
-            <CardHeader className="px-6 pt-6 pb-2">
-              <h2 className="text-xl font-bold text-white font-display">
-                Prerequisites & System Setup
-              </h2>
-            </CardHeader>
-            <CardBody className="px-6 pb-6 space-y-4 text-sm text-gray-300">
-              <ul className="list-disc pl-5 space-y-2 text-gray-400">
-                <li>
-                  <strong className="text-white">Node.js</strong>: v18.0.0 or
-                  higher
-                </li>
-                <li>
-                  <strong className="text-white">Package Manager</strong>: npm
-                  v9+
-                </li>
-                <li>
-                  <strong className="text-white">Web3 Wallets</strong>: MetaMask
-                  (for Avalanche Fuji) and Freighter Wallet (for Stellar)
-                </li>
-                <li>
-                  <strong className="text-white">Rust & Cargo</strong>:
-                  (Optional) for compiling Stellar Soroban smart contracts
-                  locally
-                </li>
-              </ul>
-
-              <div className="space-y-3 pt-4">
-                <h3 className="font-semibold text-white">
-                  1. Clone & Install Dependencies
-                </h3>
-                <div className="relative bg-gray-950 p-4 rounded-xl border border-gray-800 font-mono text-xs text-brand-300">
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        "git clone https://github.com/spoovault/spoovault.git\ncd spoovault\nnpm install",
-                        "Commands"
-                      )
-                    }
-                    className="absolute top-3 right-3 text-gray-400 hover:text-white p-1"
-                  >
-                    <FiCopy />
-                  </button>
-                  <pre>{`git clone https://github.com/spoo-vault/spoovault.git
-cd spoovault
-npm install`}</pre>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <h3 className="font-semibold text-white">
-                  2. Environment Configuration
-                </h3>
-                <p className="text-xs text-gray-400">
-                  Create a{" "}
-                  <code className="text-brand-400 bg-gray-950 px-1.5 py-0.5 rounded">
-                    .env
-                  </code>{" "}
-                  file based on{" "}
-                  <code className="text-brand-400 bg-gray-950 px-1.5 py-0.5 rounded">
-                    .env.example
-                  </code>
-                  :
-                </p>
-                <div className="relative bg-gray-950 p-4 rounded-xl border border-gray-800 font-mono text-xs text-gray-300 overflow-x-auto">
-                  <pre>{`VITE_CONTRACT_ADDRESS=0x64128680775Ef626379DeF6E5c815AeA8F4707Ef
-VITE_AVALANCHE_RPC=https://api.avax-test.network/ext/bc/C/rpc
-VITE_CHAIN_ID=43113
-VITE_CHAIN_NAME=Avalanche Fuji Testnet
-VITE_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/
-# Downloads also race Infura, Cloudflare IPFS, and ipfs.io if Pinata returns 429 or times out
-VITE_CONTRACT_DEPLOY_BLOCK=51988771
-VITE_TX_WAIT_TIMEOUT_MS=180000`}</pre>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <h3 className="font-semibold text-white">
-                  3. Launch Development Server
-                </h3>
-                <div className="relative bg-gray-950 p-4 rounded-xl border border-gray-800 font-mono text-xs text-brand-300">
-                  <pre>{`npm run dev`}</pre>
-                </div>
-                <p className="text-xs text-gray-400">
-                  App will be available locally at{" "}
-                  <code className="text-brand-400 bg-gray-950 px-1.5 py-0.5 rounded">
-                    http://localhost:5173
-                  </code>
-                  .
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
-
-      {/* Tab 3: Smart Contracts */}
-      {activeTab === "contracts" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Avalanche Solidity */}
-            <Card className="bg-gray-900/70 border border-gray-800 rounded-2xl">
-              <CardHeader className="px-6 pt-6 pb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Chip color="danger" size="sm" variant="flat">
-                    Avalanche EVM
-                  </Chip>
-                  <h3 className="text-lg font-bold text-white font-display">
-                    Solidity Contract
-                  </h3>
-                </div>
-              </CardHeader>
-              <CardBody className="px-6 pb-6 space-y-3 text-xs text-gray-300">
-                <p>
-                  <strong>Location</strong>:{" "}
-                  <code className="text-brand-400 bg-gray-950 px-1.5 py-0.5 rounded">
-                    contracts/SpooVault.sol
-                  </code>
-                </p>
-                <p>
-                  <strong>Compiler Version</strong>: Solidity 0.8.20 (Hardhat)
-                </p>
-                <p>
-                  <strong>Deployed Address (Fuji)</strong>:
-                </p>
-                <div className="bg-gray-950 p-2.5 rounded-lg border border-gray-800 font-mono text-[11px] text-red-300 break-all flex items-center justify-between">
-                  <span>0x64128680775Ef626379DeF6E5c815AeA8F4707Ef</span>
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        "0x64128680775Ef626379DeF6E5c815AeA8F4707Ef",
-                        "Contract Address"
-                      )
-                    }
-                    className="text-gray-400 hover:text-white ml-2"
-                  >
-                    <FiCopy />
-                  </button>
-                </div>
-                <div className="pt-2">
-                  <p className="font-semibold text-white mb-1">Commands:</p>
-                  <div className="bg-gray-950 p-3 rounded-lg border border-gray-800 font-mono text-[11px] text-gray-300 space-y-1">
-                    <p># Compile Solidity contracts</p>
-                    <p className="text-brand-300">npx hardhat compile</p>
-                    <p className="mt-2"># Run Hardhat unit tests</p>
-                    <p className="text-brand-300">npm run test:contracts</p>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* Stellar Soroban */}
-            <Card className="bg-gray-900/70 border border-gray-800 rounded-2xl">
-              <CardHeader className="px-6 pt-6 pb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Chip color="secondary" size="sm" variant="flat">
-                    Stellar Soroban
-                  </Chip>
-                  <h3 className="text-lg font-bold text-white font-display">
-                    Rust Contract
-                  </h3>
-                </div>
-              </CardHeader>
-              <CardBody className="px-6 pb-6 space-y-3 text-xs text-gray-300">
-                <p>
-                  <strong>Location</strong>:{" "}
-                  <code className="text-purple-400 bg-gray-950 px-1.5 py-0.5 rounded">
-                    contracts-stellar/src/lib.rs
-                  </code>
-                </p>
-                <p>
-                  <strong>SDK</strong>: Soroban Rust SDK (
-                  <code className="text-purple-300">#![no_std]</code>)
-                </p>
-                <p>
-                  <strong>Wallet Integration</strong>: Freighter API
-                  (@stellar/freighter-api)
-                </p>
-                <div className="pt-2">
-                  <p className="font-semibold text-white mb-1">Commands:</p>
-                  <div className="bg-gray-950 p-3 rounded-lg border border-gray-800 font-mono text-[11px] text-gray-300 space-y-1">
-                    <p># Run Soroban contract tests</p>
-                    <p className="text-purple-300">npm run test:stellar</p>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
+          <div className="flex items-center gap-4 text-gray-400">
+            <Link to="/" className="hover:text-purple-300">Home</Link>
+            <Link to="/dashboard" className="hover:text-purple-300">App</Link>
+            <a href="https://github.com/spoo-vault/spoovault" target="_blank" rel="noopener noreferrer" className="hover:text-purple-300">GitHub</a>
+            <a href={STELLAR_TESTNET_EXPLORER} target="_blank" rel="noopener noreferrer" className="hover:text-purple-300">Contract</a>
           </div>
         </div>
-      )}
-
-      {/* Tab 4: Testing */}
-      {activeTab === "testing" && (
-        <div className="space-y-6">
-          <Card className="bg-gray-900/70 border border-gray-800 rounded-2xl">
-            <CardHeader className="px-6 pt-6 pb-2">
-              <h2 className="text-xl font-bold text-white font-display">
-                Quality Gates & Verification Suite
-              </h2>
-            </CardHeader>
-            <CardBody className="px-6 pb-6 space-y-4">
-              <p className="text-sm text-gray-400">
-                Before submitting any Pull Request, ensure that all quality
-                gates pass:
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-2">
-                  <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                    <FiCheckCircle className="text-green-400" />
-                    <span>Unit Testing (Vitest)</span>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    Executes encryption, helper, and service unit tests.
-                  </p>
-                  <div className="bg-gray-900 p-2 rounded text-xs font-mono text-brand-300">
-                    npm test
-                  </div>
-                </div>
-
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-2">
-                  <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                    <FiCheckCircle className="text-green-400" />
-                    <span>TypeScript Verification</span>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    Checks static types across all components and services.
-                  </p>
-                  <div className="bg-gray-900 p-2 rounded text-xs font-mono text-brand-300">
-                    npx tsc --noEmit
-                  </div>
-                </div>
-
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-2">
-                  <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                    <FiCheckCircle className="text-green-400" />
-                    <span>Live Contract Smoke Check</span>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    Validates RPC connectivity and contract code on Avalanche
-                    Fuji.
-                  </p>
-                  <div className="bg-gray-900 p-2 rounded text-xs font-mono text-brand-300">
-                    npm run test:smoke
-                  </div>
-                </div>
-
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-2">
-                  <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                    <FiCheckCircle className="text-green-400" />
-                    <span>Production Bundle Build</span>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    Ensures production web application bundle compiles.
-                  </p>
-                  <div className="bg-gray-900 p-2 rounded text-xs font-mono text-brand-300">
-                    npm run build
-                  </div>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
-
-      {/* Tab 5: GrantFox */}
-      {activeTab === "grantfox" && (
-        <div className="space-y-6">
-          <Card className="bg-gray-900/70 border border-gray-800 rounded-2xl">
-            <CardHeader className="px-6 pt-6 pb-2">
-              <h2 className="text-xl font-bold text-white font-display">
-                GrantFox Open Source Contribution Lifecycle
-              </h2>
-            </CardHeader>
-            <CardBody className="px-6 pb-6 space-y-4 text-sm text-gray-300">
-              <p className="text-gray-400 text-xs leading-relaxed">
-                Spoovault participates in GrantFox open-source ecosystem
-                bounties and milestone-based funding. Follow this checklist when
-                claiming and submitting contributions:
-              </p>
-
-              <div className="space-y-3">
-                {steps.map((step) => {
-                  const isOpen = openStep === step.id;
-                  return (
-                    <div
-                      key={step.id}
-                      className="rounded-xl border border-gray-800 bg-gray-950 overflow-hidden"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleStep(step.id)}
-                        className="w-full px-4 py-3 flex items-center justify-between text-left font-medium text-white hover:bg-gray-900/50 transition-colors"
-                      >
-                        <span className="text-sm font-semibold">
-                          {step.title}
-                        </span>
-                        {isOpen ? (
-                          <FiChevronUp className="text-brand-400 text-base" />
-                        ) : (
-                          <FiChevronDown className="text-gray-500 text-base" />
-                        )}
-                      </button>
-                      {isOpen && (
-                        <div className="px-4 pb-4 pt-1 text-xs text-gray-400 border-t border-gray-800/80 leading-relaxed">
-                          {step.content}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
+      </footer>
     </div>
   );
 }

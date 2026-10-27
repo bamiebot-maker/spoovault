@@ -27,8 +27,9 @@ A clear and concise description of what you expected to happen.
 
 - OS: [e.g. Windows, macOS, Linux]
 - Browser: [e.g. Chrome, Firefox, Brave]
-- Connected Network: [e.g. Avalanche Fuji, Stellar Testnet]
-- Wallet: [e.g. MetaMask, Freighter]
+- Connected Network: [e.g. Stellar Testnet (Protocol 22), Futurenet]
+- Wallet: [e.g. Freighter Wallet, Passkey/WebAuthn]
+- Contract Version / Address: [e.g. CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B]
 
 ## Additional Context
 

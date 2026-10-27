@@ -32,7 +32,6 @@ import {
   FiZap,
   FiClock,
   FiAlertTriangle,
-  FiAlertCircle,
 } from "react-icons/fi";
 import { useSearchParams } from "react-router-dom";
 import { useWeb3 } from "../context/Web3Context";
@@ -42,7 +41,7 @@ import {
   VaultReleaseState,
   EmergencyUnlockSchedule,
 } from "../services/contract.service";
-import { shortenAddress, isValidAddress, isValidMultiChainAddress, formatDate, getVaultGID, buildVaultDocumentCounts, keyRecordByVaultGID } from "../utils/helpers";
+import { shortenAddress, isValidAddress, isValidStellarAddress, isValidMultiChainAddress, formatDate, getVaultGID, buildVaultDocumentCounts, keyRecordByVaultGID } from "../utils/helpers";
 import { EmergencyUnlockStatusView } from "../components/EmergencyUnlockStatusView";
 import { identityService } from "../services/identity.service";
 import { toast } from "react-hot-toast";
@@ -60,7 +59,7 @@ const Vaults = () => {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "mine" | "inactive">("all");
   const [searchParams] = useSearchParams();
-  const { account, isConnected, connect, provider, signer, isFujiNetwork, ecosystem, chainId } = useWeb3();
+  const { account, isConnected, connect, ecosystem, chainId } = useWeb3();
 
   const [vaults, setVaults] = useState<Vault[]>([]);
   const [releaseStatesByVault, setReleaseStatesByVault] = useState<Record<string, VaultReleaseState>>({});
@@ -97,10 +96,7 @@ const Vaults = () => {
 
 
   useEffect(() => {
-    if (isConnected && ((provider && signer && isFujiNetwork) || ecosystem === "stellar")) {
-      if (provider && signer) {
-        contractService.initialize(provider, signer);
-      }
+    if (isConnected && account) {
       loadVaults();
     } else {
       setLoading(false);
@@ -109,7 +105,7 @@ const Vaults = () => {
       setUnlockSchedulesByVault({});
       setUnlockScheduleLoadState("ready");
     }
-  }, [account, isConnected, provider, signer, isFujiNetwork, ecosystem, chainId]);
+  }, [account, isConnected, chainId]);
 
   const loadVaults = async (options?: { silent?: boolean }) => {
     if (!account) {
@@ -180,19 +176,19 @@ const Vaults = () => {
       return;
     }
 
-    if (!isValidMultiChainAddress(rawInput)) {
-      toast.error("Invalid address format. Enter an EVM address (0x...) or Stellar address (G...).");
+    const isStellar = isValidStellarAddress(rawInput);
+    if (!isStellar && !isValidMultiChainAddress(rawInput)) {
+      toast.error("Invalid address format. Please enter a valid Stellar address (G... or C...).");
       return;
     }
 
     let resolvedAddress = rawInput;
-    const targetNetwork = ecosystem === "stellar" ? "stellar" : "avalanche";
+    const targetNetwork = "stellar";
 
     try {
       resolvedAddress = await identityService.resolveAddressForNetwork(rawInput, targetNetwork);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to resolve guardian address for network");
-      return;
+    } catch {
+      resolvedAddress = rawInput;
     }
 
     if (formData.guardians.includes(resolvedAddress)) {
@@ -222,13 +218,8 @@ const Vaults = () => {
 
   const handleCreateVault = async () => {
     if (!isConnected) {
-      toast.error("Please connect your wallet first");
+      toast.error("Please connect your Freighter wallet first");
       await connect();
-      return;
-    }
-
-    if (!isFujiNetwork) {
-      toast.error("Please switch to Avalanche Fuji network");
       return;
     }
 
@@ -252,8 +243,8 @@ const Vaults = () => {
       return;
     }
 
-    if (!isValidAddress(formData.beneficiaryAddress, "avalanche")) {
-      toast.error("Invalid beneficiary Ethereum address");
+    if (!isValidAddress(formData.beneficiaryAddress, "stellar")) {
+      toast.error("Invalid beneficiary Stellar address (e.g. G...)");
       return;
     }
 
@@ -463,9 +454,9 @@ const Vaults = () => {
           <div className="w-20 h-20 bg-gradient-to-br from-brand-700 to-brand-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <FiZap className="text-white text-3xl" />
           </div>
-          <h1 className="text-3xl font-bold mb-4">Connect Your Wallet</h1>
+          <h1 className="text-3xl font-bold mb-4">Connect Freighter Wallet</h1>
           <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Connect your wallet to create and manage access vaults for daily, emergency, and inheritance document release on Avalanche.
+            Connect your Freighter wallet to create and manage access vaults with smart contract inheritance and dead-man's switch protection on Stellar Soroban.
           </p>
           <Button
             size="lg"
@@ -473,33 +464,7 @@ const Vaults = () => {
             onPress={connect}
             startContent={<FiZap />}
           >
-            Connect Wallet
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isFujiNetwork) {
-    return (
-      <div className="min-h-[calc(100vh-11rem)] flex items-center justify-center">
-        <div className="w-full max-w-4xl rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 p-8 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <FiAlertCircle className="text-white text-3xl" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Wrong Network</h1>
-          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Please switch to Avalanche Fuji Testnet to manage vaults.
-          </p>
-          <Button
-            size="lg"
-            className={buttonClasses.warningLg}
-            onPress={() => window.ethereum && window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: "0xA869" }]
-            })}
-          >
-            Switch to Fuji Network
+            Connect Freighter
           </Button>
         </div>
       </div>
@@ -842,7 +807,7 @@ const Vaults = () => {
                   <div className="space-y-1">
                     <p className="text-xs text-gray-300 font-medium">Guardian Address</p>
                   <Input
-                    placeholder={ecosystem === "stellar" ? "Enter guardian's Stellar address" : "Enter guardian's Ethereum address"}
+                    placeholder="Enter guardian's Stellar address (e.g. G...)"
                     value={formData.newGuardian}
                     onValueChange={(value: string) => setFormData({ ...formData, newGuardian: value })}
                     classNames={modalInputClassNames}
@@ -1017,7 +982,7 @@ const Vaults = () => {
                 <div className="space-y-1">
                   <p className="text-xs text-gray-300 font-medium">Beneficiary Address</p>
                   <Input
-                    placeholder="Enter beneficiary's Ethereum address"
+                    placeholder="Enter beneficiary's Stellar address (e.g. G...)"
                     value={formData.beneficiaryAddress}
                     onValueChange={(value: string) => setFormData({ ...formData, beneficiaryAddress: value })}
                     classNames={modalInputClassNames}
@@ -1027,8 +992,8 @@ const Vaults = () => {
 
               <div className="p-4 bg-brand-700/10 border border-brand-700/20 rounded-2xl">
                 <p className="text-sm">
-                  <span className="font-medium">Note:</span> Creating a vault requires a blockchain
-                  transaction and will incur gas fees on Avalanche Fuji.
+                  <span className="font-medium">Note:</span> Creating a vault invokes a Soroban smart
+                  contract transaction on Stellar Testnet.
                 </p>
               </div>
             </div>

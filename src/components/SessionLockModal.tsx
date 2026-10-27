@@ -13,6 +13,7 @@ interface SessionLockModalProps {
   open: boolean;
   accounts: string[];
   onUnlock: (pin: string) => Promise<void> | void;
+  onDismiss?: () => void;
 }
 
 function shorten(account: string): string {
@@ -28,6 +29,7 @@ export function SessionLockModal({
   open,
   accounts,
   onUnlock,
+  onDismiss,
 }: SessionLockModalProps) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,13 +55,19 @@ export function SessionLockModal({
   return (
     <Modal
       isOpen={open}
-      hideCloseButton
+      onClose={onDismiss}
       backdrop="blur"
-      isDismissable={false}
+      isDismissable={true}
       placement="center"
+      classNames={{
+        base: "bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl",
+        header: "border-b border-gray-800/80 px-6 py-4",
+        body: "px-6 py-5",
+        footer: "border-t border-gray-800/80 px-6 py-4",
+      }}
     >
       <ModalContent>
-        <ModalHeader className="flex flex-col gap-1">
+        <ModalHeader className="flex flex-col gap-1 text-white">
           Session Locked
         </ModalHeader>
         <ModalBody>
@@ -90,13 +98,24 @@ export function SessionLockModal({
             autoFocus
           />
         </ModalBody>
-        <ModalFooter>
+        <ModalFooter className="flex justify-between items-center">
+          {onDismiss && (
+            <Button
+              variant="light"
+              color="default"
+              onPress={onDismiss}
+              isDisabled={busy}
+            >
+              Dismiss
+            </Button>
+          )}
           <Button
             color="primary"
+            className="app-btn-primary"
             onPress={() => void submit()}
             isLoading={busy}
           >
-            Unlock
+            Unlock Session
           </Button>
         </ModalFooter>
       </ModalContent>

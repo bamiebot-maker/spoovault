@@ -17,7 +17,6 @@ import {
   FiShield,
   FiKey,
   FiClock,
-  FiAlertCircle,
   FiDownload,
   FiEye,
   FiUpload,
@@ -111,10 +110,6 @@ const AccessCenter = () => {
     account,
     isConnected,
     connect,
-    provider,
-    signer,
-    isFujiNetwork,
-    ecosystem,
   } = useWeb3();
 
   const [loading, setLoading] = useState(true);
@@ -142,18 +137,12 @@ const AccessCenter = () => {
   const [blsModalOpen, setBlsModalOpen] = useState(false);
 
   useEffect(() => {
-    if (
-      isConnected &&
-      (ecosystem === "stellar" || (provider && signer && isFujiNetwork))
-    ) {
-      if (ecosystem !== "stellar" && provider && signer) {
-        contractService.initialize(provider, signer);
-      }
+    if (isConnected && account) {
       loadData();
     } else {
       setLoading(false);
     }
-  }, [account, isConnected, provider, signer, isFujiNetwork, ecosystem]);
+  }, [account, isConnected]);
 
   const loadData = async () => {
     if (!account) {
@@ -643,16 +632,7 @@ const AccessCenter = () => {
     }
 
     const targetDoc = documents.find((d) => d.id === docId);
-    const targetVault = targetDoc
-      ? vaults.find((v) => v.id === targetDoc.vaultId)
-      : null;
-    const vaultNetwork: "avalanche" | "stellar" =
-      targetVault?.network || ecosystem;
-
-    if (vaultNetwork === "avalanche" && !isFujiNetwork) {
-      toast.error("Please switch to Avalanche Fuji network");
-      return;
-    }
+    const vaultNetwork: "stellar" = "stellar";
 
     setRequestingDocId(docId);
     try {
@@ -899,21 +879,7 @@ const AccessCenter = () => {
     );
   }
 
-  if (ecosystem !== "stellar" && !isFujiNetwork) {
-    return (
-      <div className="space-y-8">
-        <div className="rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 p-8 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <FiAlertCircle className="text-white text-3xl" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Wrong Network</h1>
-          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Please switch to Avalanche Fuji Testnet to use beneficiary access.
-          </p>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6">

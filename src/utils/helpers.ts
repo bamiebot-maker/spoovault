@@ -95,12 +95,12 @@ export const isValidMultiChainAddress = (address: string): boolean => {
 };
 
 /**
- * Validate address (supports both EVM and Stellar format)
+ * Validate address (defaults to Stellar format G... or C...)
  */
 export const isValidAddress = (address: string, networkOrEcosystem?: string): boolean => {
   if (networkOrEcosystem === "stellar") return isValidStellarAddress(address);
   if (networkOrEcosystem === "avalanche" || networkOrEcosystem === "evm") return isValidEVMAddress(address);
-  return isValidMultiChainAddress(address);
+  return isValidStellarAddress(address) || isValidEVMAddress(address);
 };
 
 /**

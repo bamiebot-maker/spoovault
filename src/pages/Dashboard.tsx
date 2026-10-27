@@ -16,7 +16,6 @@ import {
   FiActivity,
   FiTrendingUp,
   FiArrowUpRight,
-  FiAlertCircle,
   FiZap,
   FiClock,
   FiCheckCircle,
@@ -68,7 +67,7 @@ interface DashboardStats {
 }
 
 const Dashboard = () => {
-  const { account, isConnected, connect, provider, signer, isFujiNetwork } = useWeb3();
+  const { account, isConnected, connect } = useWeb3();
   const navigate = useNavigate();
   const location = useLocation();
   const loadVersionRef = useRef(0);
@@ -89,8 +88,7 @@ const Dashboard = () => {
   const [packageExported, setPackageExported] = useState(false);
 
   useEffect(() => {
-    if (isConnected && provider && isFujiNetwork) {
-      contractService.initialize(provider, signer ?? undefined);
+    if (isConnected && account) {
       const hydrated = hydrateDashboardCache(account || "");
       if (hydrated) {
         void loadDashboardData({ silent: true });
@@ -113,7 +111,7 @@ const Dashboard = () => {
       setActivityLoading(false);
       setLoading(false);
     }
-  }, [account, isConnected, provider, signer, isFujiNetwork]);
+  }, [account, isConnected]);
 
   useEffect(() => {
     const readPackageFlag = () => {
@@ -620,7 +618,7 @@ const Dashboard = () => {
           </div>
           <h1 className="text-3xl font-bold mb-4">Welcome to SpooVault</h1>
           <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Connect your wallet to manage secure access vaults and family documents on Avalanche Fuji.
+            Connect your Freighter wallet to manage secure access vaults and confidential documents on Stellar Soroban.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -629,7 +627,7 @@ const Dashboard = () => {
               onPress={connect}
               startContent={<FiKey />}
             >
-              Connect Wallet
+              Connect Freighter
             </Button>
             <Button
               size="lg"
@@ -639,32 +637,6 @@ const Dashboard = () => {
               Learn More
             </Button>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isFujiNetwork) {
-    return (
-      <div className="min-h-[calc(100vh-11rem)] flex items-center justify-center">
-        <div className="w-full max-w-4xl rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 p-8 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <FiAlertCircle className="text-white text-3xl" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Wrong Network</h1>
-          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Please switch to Avalanche Fuji Testnet to use SpooVault.
-          </p>
-          <Button
-            size="lg"
-            className={buttonClasses.warningLg}
-            onPress={() => window.ethereum && window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: "0xA869" }]
-            })}
-          >
-            Switch to Fuji Network
-          </Button>
         </div>
       </div>
     );

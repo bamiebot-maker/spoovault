@@ -1,4 +1,5 @@
-import { UIEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@heroui/react";
 import {
   FiArrowRight,
@@ -6,1123 +7,850 @@ import {
   FiLock,
   FiMenu,
   FiX,
-  FiCheckCircle,
-  FiFileText,
   FiKey,
-  FiPlay,
+  FiActivity,
+  FiClock,
+  FiUsers,
+  FiPlus,
+  FiMinus,
+  FiExternalLink,
+  FiGithub,
+  FiTwitter,
+  FiSend,
 } from "react-icons/fi";
-import { Link } from "react-router-dom";
-import { getCurrentYear } from "../utils/helpers";
-import { buttonClasses } from "../utils/buttonClasses";
 import BrandLogo from "../components/BrandLogo";
-
-const HEADLINE_TYPING_TEXT = "Live and Beyond";
-type MobileSliderKey = "kpi" | "workflow" | "features";
-
-const ecosystemCards = [
-  {
-    id: "avalanche",
-    name: "Avalanche",
-    badge: "VERIFIED ON AVALANCHE",
-    badgeColor: "text-rose-400 border-rose-500/40 bg-rose-500/20",
-    title: "SpooVault",
-    cardNumber: "#AVAX-43114",
-    subtitle: "AVALANCHE C-CHAIN VAULT",
-    detailsTag: "AVALANCHE // MULTI-SIG KEY SHARE",
-    serial: "43114 of 50,000",
-    passName: "C-Chain Access Pass",
-    gradient: "from-purple-950 via-rose-900/60 to-black/95",
-    glowColor: "rgba(225, 29, 72, 0.4)",
-    iconSymbol: "🔺",
-  },
-  {
-    id: "stellar",
-    name: "Stellar",
-    badge: "VERIFIED ON STELLAR",
-    badgeColor: "text-cyan-300 border-cyan-400/40 bg-cyan-500/20",
-    title: "SpooVault",
-    cardNumber: "#XLM-1001",
-    subtitle: "STELLAR SECRET KEY VAULT",
-    detailsTag: "STELLAR // ED25519 ENCRYPTED",
-    serial: "1001 of 50,000",
-    passName: "Stellar Key Pass",
-    gradient: "from-blue-950 via-indigo-900/60 to-black/95",
-    glowColor: "rgba(56, 189, 248, 0.4)",
-    iconSymbol: "🚀",
-  },
-  {
-    id: "soroban",
-    name: "Soroban",
-    badge: "POWERED BY SOROBAN",
-    badgeColor: "text-emerald-300 border-emerald-400/40 bg-emerald-500/20",
-    title: "SpooVault",
-    cardNumber: "#SOROBAN-302",
-    subtitle: "SOROBAN SMART CONTRACT VAULT",
-    detailsTag: "SOROBAN // WASM AUTO-INHERIT",
-    serial: "302 of 50,000",
-    passName: "Soroban Contract Pass",
-    gradient: "from-emerald-950 via-teal-900/60 to-black/95",
-    glowColor: "rgba(52, 211, 153, 0.4)",
-    iconSymbol: "⚡",
-  },
-];
+import { getCurrentYear } from "../utils/helpers";
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState("#hero");
-  const [showSplash, setShowSplash] = useState(true);
   const [isHeaderElevated, setIsHeaderElevated] = useState(false);
-  const [activeCardIdx, setActiveCardIdx] = useState(0);
-  const [activeMobileSlide, setActiveMobileSlide] = useState<
-    Record<MobileSliderKey, number>
-  >({
-    kpi: 0,
-    workflow: 0,
-    features: 0,
-  });
+  const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+  const [heartbeatSeconds, setHeartbeatSeconds] = useState(1234567);
+
+  // Countdown timer for preview terminal
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeartbeatSeconds((prev) => (prev > 0 ? prev - 1 : 1234567));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatCountdown = (totalSeconds: number) => {
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${days}d : ${String(hours).padStart(2, "0")}h : ${String(
+      minutes
+    ).padStart(2, "0")}m : ${String(seconds).padStart(2, "0")}s`;
+  };
+
+  const handlePingHeartbeat = () => {
+    setHeartbeatSeconds(1296000); // Reset to 15 days
+  };
 
   useEffect(() => {
-    if (showSplash) return;
-    const timer = window.setInterval(() => {
-      setActiveCardIdx((prev) => (prev + 1) % ecosystemCards.length);
-    }, 3800);
-    return () => window.clearInterval(timer);
-  }, [showSplash]);
-  const landingVariantClass = (() => {
-    const param = new URLSearchParams(window.location.search).get("lp");
-    if (param === "1") return "landing-variant-01";
-    if (param === "3") return "landing-variant-03";
-    return "landing-variant-02";
-  })();
-  const [typedHeadline, setTypedHeadline] = useState("");
-  const [isTypingComplete, setIsTypingComplete] = useState(false);
-  const sliderRafRef = useRef<Partial<Record<MobileSliderKey, number>>>({});
-  const lastKpiInteractionRef = useRef(0);
-  const kpiSliderRef = useRef<HTMLDivElement | null>(null);
-  const workflowSliderRef = useRef<HTMLDivElement | null>(null);
-  const featureSliderRef = useRef<HTMLDivElement | null>(null);
+    const onScroll = () => {
+      setIsHeaderElevated(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
-  const navItems = [
+  const navLinks = [
     { label: "Overview", href: "#hero" },
     { label: "Features", href: "#features" },
-    { label: "Workflow", href: "#workflow" },
+    { label: "Vaults", href: "#vaults" },
     { label: "Security", href: "#security" },
+    { label: "FAQ", href: "#faq" },
+  ];
+
+  const statMetrics = [
+    { value: "$2.155M+", label: "Total Value Protected", icon: "💎" },
+    { value: "15,497", label: "Active Custody Vaults", icon: "🛡️" },
+    { value: "129,130", label: "Verifiable Heartbeat Relays", icon: "⚡" },
+  ];
+
+  const journeyCards = [
+    {
+      title: "Stellar Secret Key Vault",
+      code: "XLM-VAULT",
+      badge: "VERIFIED ON STELLAR",
+      badgeColor: "text-cyan-300 border-cyan-500/30 bg-cyan-950/40",
+      description: "Ed25519 encrypted seed phrases & secret keys with zero-knowledge privacy.",
+      statLabel: "SECURITY",
+      statValue: "AES-256 + ECIES",
+      icon: "🚀",
+      gradient: "from-blue-900/40 via-indigo-950/60 to-black/90",
+      borderHover: "hover:border-cyan-500/60",
+    },
+    {
+      title: "Soroban Smart Contract Vault",
+      code: "WASM-302",
+      badge: "SOROBAN TESTNET",
+      badgeColor: "text-purple-300 border-purple-500/30 bg-purple-950/40",
+      description: "Automated on-chain dead-man's switch with keeper proof-of-life relays.",
+      statLabel: "EXECUTION",
+      statValue: "Soroban WASM",
+      icon: "⚡",
+      gradient: "from-purple-900/40 via-violet-950/60 to-black/90",
+      borderHover: "hover:border-purple-500/60",
+    },
+    {
+      title: "Multi-Sig Guardian Pass",
+      code: "CONSENSUS-5",
+      badge: "M-OF-N QUORUM",
+      badgeColor: "text-emerald-300 border-emerald-500/30 bg-emerald-950/40",
+      description: "Cryptographic consensus where guardians must approve before any unlock.",
+      statLabel: "CONSENSUS",
+      statValue: "3/5 Threshold",
+      icon: "👥",
+      gradient: "from-emerald-900/40 via-teal-950/60 to-black/90",
+      borderHover: "hover:border-emerald-500/60",
+    },
+    {
+      title: "Shamir Secret Splitter",
+      code: "SSS-204",
+      badge: "ZERO KNOWLEDGE",
+      badgeColor: "text-yellow-300 border-yellow-500/30 bg-yellow-950/40",
+      description: "Splits master encryption keys into shards. No single entity ever holds the key.",
+      statLabel: "ALGORITHM",
+      statValue: "Polynomial SSS",
+      icon: "🧩",
+      gradient: "from-amber-900/40 via-orange-950/60 to-black/90",
+      borderHover: "hover:border-yellow-500/60",
+    },
+    {
+      title: "WebAuthn Passkey Vault",
+      code: "FIDO2-PASS",
+      badge: "BIOMETRIC PROTECTED",
+      badgeColor: "text-sky-300 border-sky-500/30 bg-sky-950/40",
+      description: "Unlock local browser keyrings with TouchID, FaceID, or hardware YubiKeys.",
+      statLabel: "AUTH STANDARD",
+      statValue: "FIDO2 / WebAuthn",
+      icon: "🔐",
+      gradient: "from-sky-900/40 via-blue-950/60 to-black/90",
+      borderHover: "hover:border-sky-500/60",
+    },
+    {
+      title: "NFT Beneficiary Pass",
+      code: "PASS-88",
+      badge: "REVOCABLE ACCESS",
+      badgeColor: "text-pink-300 border-pink-500/30 bg-pink-950/40",
+      description: "Time-bound, verifiable digital passes minted directly to beneficiary Stellar wallets.",
+      statLabel: "DISTRIBUTION",
+      statValue: "Stellar Passes",
+      icon: "🎫",
+      gradient: "from-pink-900/40 via-rose-950/60 to-black/90",
+      borderHover: "hover:border-pink-500/60",
+    },
   ];
 
   const featureCards = [
     {
-      icon: <FiShield className="text-xl" />,
-      title: "Access Guardians",
-      description:
-        "Assign trusted guardians and executors for each access vault.",
-      points: [
-        "Flexible approval thresholds",
-        "On-chain audit events",
-        "Emergency fallback coverage",
-      ],
+      icon: <FiShield className="text-2xl text-purple-400" />,
+      title: "Unified Multi-Sig & Custody",
+      description: "Coordinate trusted guardians with flexible consensus thresholds (e.g. 2-of-3, 3-of-5). All approvals are audited and recorded on the Soroban ledger.",
     },
     {
-      icon: <FiLock className="text-xl" />,
-      title: "Encrypted Vault Storage",
-      description:
-        "Sensitive family records are encrypted in-browser before upload.",
-      points: [
-        "Client-side AES encryption",
-        "No plaintext exposure",
-        "IPFS-backed retrieval",
-      ],
+      icon: <FiLock className="text-2xl text-cyan-400" />,
+      title: "Zero-Knowledge Encryption",
+      description: "All documents and key shards are encrypted in-browser using Web Crypto ECIES (ECDH P-256) and AES-GCM-256 before being pinned to decentralized IPFS.",
     },
     {
-      icon: <FiKey className="text-xl" />,
-      title: "Access Passes",
-      description:
-        "ERC-721 passes define who can request or receive protected documents.",
-      points: [
-        "Mint to family or delegates",
-        "Burn to revoke",
-        "Wallet-native ownership",
-      ],
+      icon: <FiClock className="text-2xl text-emerald-400" />,
+      title: "Automated Dead-Man's Switch",
+      description: "Set a custom heartbeat interval (e.g. 30, 90, 180 days). If unacknowledged, Soroban smart contracts automatically initiate emergency guardian protocols.",
+    },
+    {
+      icon: <FiKey className="text-2xl text-yellow-400" />,
+      title: "One-Click Delegation",
+      description: "Issue time-locked or conditional access tokens to attorneys, family members, or executors with instant on-chain revocation at any time.",
+    },
+    {
+      icon: <FiActivity className="text-2xl text-rose-400" />,
+      title: "Soroban Smart Contract Performance",
+      description: "Built for lightning-fast execution with sub-second finality and minuscule gas fees on the modern Rust-based Stellar Soroban architecture.",
+    },
+    {
+      icon: <FiUsers className="text-2xl text-indigo-400" />,
+      title: "100% Self-Custodial Security",
+      description: "Your master credentials never touch any central server. Local browser IndexedDB keyrings are guarded by optional passkeys and PIN hashing.",
     },
   ];
 
-  const kpiCards = [
-    { title: "AES-256", subtitle: "Client-side encryption" },
-    { title: "Multi-Sig", subtitle: "Guardian approvals" },
-    { title: "ERC-721", subtitle: "Beneficiary access passes" },
-  ];
-
-  const securityItems = [
+  const faqs = [
     {
-      icon: <FiCheckCircle className="text-brand-400" />,
-      title: "No Plaintext Leakage",
-      description:
-        "Only encrypted metadata and content references are placed on-chain.",
+      q: "What is SpooVault and why is it built on Stellar Soroban?",
+      a: "SpooVault is a decentralized on-chain custody and digital inheritance protocol. We chose Stellar Soroban for its formal verification support, deterministic Rust smart contract execution, instant sub-second finality, and predictable near-zero fees that make lifelong automated custody viable.",
     },
     {
-      icon: <FiCheckCircle className="text-brand-400" />,
-      title: "Theft-Resistant Control",
-      description:
-        "No single actor can unilaterally release protected documents.",
+      q: "How does the Dead-Man's Switch and Proof of Life work?",
+      a: "As the vault owner, you configure a heartbeat interval (such as 30, 90, or 180 days). Pinging the contract via your Freighter wallet proves you are active and resets the timer. If the timer reaches zero, the Soroban contract shifts the vault into emergency mode, empowering designated guardians to verify and release encrypted credentials to beneficiaries.",
     },
     {
-      icon: <FiCheckCircle className="text-brand-400" />,
-      title: "Verifiable Release Trail",
-      description:
-        "Approval actions are recorded for legal and family-level accountability.",
+      q: "Can SpooVault developers or validators see my stored documents or keys?",
+      a: "No. Never. SpooVault operates on strict zero-knowledge architecture. Encryption occurs entirely client-side inside your browser using Web Crypto AES-GCM-256. Only encrypted ciphertext is committed to IPFS or Soroban contract storage. Without your private keys or guardian threshold approval, the data is mathematically undecipherable.",
+    },
+    {
+      q: "Which wallets and authentication methods are supported?",
+      a: "SpooVault is natively integrated with Freighter, the official Stellar Web3 browser extension. Additionally, you can secure local keyring backups using WebAuthn biometric passkeys (TouchID, FaceID, or hardware security keys like YubiKeys).",
+    },
+    {
+      q: "How do guardian approvals work during an emergency recovery?",
+      a: "When a vault enters emergency mode, designated guardians receive invitations and review on-chain release requests. Once the cryptographic threshold (for example, 3 out of 5 guardians) sign and submit their approvals, the Soroban smart contract validates the quorum and facilitates decryption for the authenticated beneficiary.",
     },
   ];
-
-  const navButtonClass = `button-curve group ${buttonClasses.primarySm}`;
-  const solidButtonClass = `button-curve group ${buttonClasses.primaryMd}`;
-
-  const headerTabClass =
-    "h-9 px-4 rounded-full text-[13px] sm:text-[14px] font-semibold transition-all duration-300 inline-flex items-center";
-
-  const refreshSliderIndex = useCallback(
-    (key: MobileSliderKey, track: HTMLDivElement | null) => {
-      if (!track || window.innerWidth >= 768) return;
-
-      const slides = Array.from(
-        track.querySelectorAll<HTMLElement>("[data-slider-item]")
-      );
-      if (slides.length === 0) return;
-
-      let nearestIndex = 0;
-      let nearestDistance = Number.POSITIVE_INFINITY;
-
-      slides.forEach((slide, idx) => {
-        const distance = Math.abs(slide.offsetLeft - track.scrollLeft);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestIndex = idx;
-        }
-      });
-
-      setActiveMobileSlide((previous) =>
-        previous[key] === nearestIndex
-          ? previous
-          : { ...previous, [key]: nearestIndex }
-      );
-    },
-    []
-  );
-
-  const handleSliderScroll = useCallback(
-    (key: MobileSliderKey) => (event: UIEvent<HTMLDivElement>) => {
-      if (window.innerWidth >= 768) return;
-      if (key === "kpi") {
-        lastKpiInteractionRef.current = Date.now();
-      }
-
-      const existingRaf = sliderRafRef.current[key];
-      if (typeof existingRaf === "number") {
-        window.cancelAnimationFrame(existingRaf);
-      }
-
-      const track = event.currentTarget;
-      sliderRafRef.current[key] = window.requestAnimationFrame(() => {
-        refreshSliderIndex(key, track);
-      });
-    },
-    [refreshSliderIndex]
-  );
-
-  const scrollSliderToIndex = useCallback(
-    (key: MobileSliderKey, index: number) => {
-      const track =
-        key === "kpi"
-          ? kpiSliderRef.current
-          : key === "workflow"
-          ? workflowSliderRef.current
-          : featureSliderRef.current;
-      if (!track) return;
-      const slides = Array.from(
-        track.querySelectorAll<HTMLElement>("[data-slider-item]")
-      );
-      const target = slides[index];
-      if (!target) return;
-      track.scrollTo({ left: target.offsetLeft, behavior: "smooth" });
-      setActiveMobileSlide((previous) => ({ ...previous, [key]: index }));
-      if (key === "kpi") {
-        lastKpiInteractionRef.current = Date.now();
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setShowSplash(false);
-    }, 1500);
-
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const sectionIds = ["hero", "features", "workflow", "security"];
-    const sections = sectionIds
-      .map((id) => document.getElementById(id))
-      .filter((section): section is HTMLElement => section !== null);
-
-    const setFromHash = () => {
-      if (window.location.hash) {
-        setActiveNav(window.location.hash);
-      }
-    };
-
-    setFromHash();
-
-    if (sections.length === 0) {
-      window.addEventListener("hashchange", setFromHash);
-      return () => window.removeEventListener("hashchange", setFromHash);
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-        if (visible?.target?.id) {
-          setActiveNav(`#${visible.target.id}`);
-        }
-      },
-      {
-        threshold: [0.2, 0.35, 0.5, 0.7],
-        rootMargin: "-28% 0px -46% 0px",
-      }
-    );
-
-    sections.forEach((section) => observer.observe(section));
-    window.addEventListener("hashchange", setFromHash);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("hashchange", setFromHash);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (showSplash) return;
-
-    const revealTargets = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-reveal]")
-    );
-
-    if (revealTargets.length === 0) return;
-
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-    if (reducedMotion) {
-      revealTargets.forEach((el) => el.classList.add("is-visible"));
-      return;
-    }
-
-    revealTargets.forEach((el) => {
-      const delay = Number(el.dataset.revealDelay || "0");
-      el.style.setProperty("--reveal-delay", `${Math.max(delay, 0)}ms`);
-    });
-
-    const revealObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          entry.target.classList.add("is-visible");
-          revealObserver.unobserve(entry.target);
-        });
-      },
-      {
-        threshold: 0.16,
-        rootMargin: "0px 0px -8% 0px",
-      }
-    );
-
-    revealTargets.forEach((el) => revealObserver.observe(el));
-
-    return () => revealObserver.disconnect();
-  }, [showSplash]);
-
-  useEffect(() => {
-    if (showSplash) return;
-    setTypedHeadline("");
-    setIsTypingComplete(false);
-  }, [showSplash]);
-
-  useEffect(() => {
-    if (showSplash) return;
-
-    if (window.innerWidth < 768) {
-      kpiSliderRef.current?.scrollTo({ left: 0, behavior: "auto" });
-      workflowSliderRef.current?.scrollTo({ left: 0, behavior: "auto" });
-      featureSliderRef.current?.scrollTo({ left: 0, behavior: "auto" });
-      setActiveMobileSlide({ kpi: 0, workflow: 0, features: 0 });
-    }
-
-    const syncSliderState = () => {
-      refreshSliderIndex("kpi", kpiSliderRef.current);
-      refreshSliderIndex("workflow", workflowSliderRef.current);
-      refreshSliderIndex("features", featureSliderRef.current);
-    };
-
-    syncSliderState();
-    window.addEventListener("resize", syncSliderState);
-
-    return () => {
-      window.removeEventListener("resize", syncSliderState);
-    };
-  }, [showSplash, refreshSliderIndex]);
-
-  useEffect(() => {
-    return () => {
-      Object.values(sliderRafRef.current).forEach((rafId) => {
-        if (typeof rafId === "number") {
-          window.cancelAnimationFrame(rafId);
-        }
-      });
-    };
-  }, []);
-
-  useEffect(() => {
-    if (showSplash || isTypingComplete) return;
-    const isComplete = typedHeadline === HEADLINE_TYPING_TEXT;
-
-    const timer = window.setTimeout(
-      () => {
-        if (isComplete) {
-          setTypedHeadline(HEADLINE_TYPING_TEXT);
-          setIsTypingComplete(true);
-          return;
-        }
-
-        setTypedHeadline(
-          HEADLINE_TYPING_TEXT.slice(0, typedHeadline.length + 1)
-        );
-      },
-      isComplete ? 120 : 18
-    );
-
-    return () => window.clearTimeout(timer);
-  }, [showSplash, isTypingComplete, typedHeadline]);
-
-  useEffect(() => {
-    if (showSplash) return;
-
-    const interval = window.setInterval(() => {
-      if (window.innerWidth >= 768) return;
-      if (Date.now() - lastKpiInteractionRef.current < 2200) return;
-
-      setActiveMobileSlide((previous) => {
-        const nextKpi = (previous.kpi + 1) % kpiCards.length;
-        scrollSliderToIndex("kpi", nextKpi);
-        return { ...previous, kpi: nextKpi };
-      });
-    }, 3200);
-
-    return () => window.clearInterval(interval);
-  }, [showSplash, kpiCards.length, scrollSliderToIndex]);
-
-  useEffect(() => {
-    if (showSplash) return;
-
-    const onScroll = () => {
-      setIsHeaderElevated(window.scrollY > 10);
-    };
-
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [showSplash]);
-
-  if (showSplash) {
-    return (
-      <div
-        className={`landing-splash ${landingVariantClass} min-h-screen w-full max-w-[100vw] overflow-hidden bg-gradient-to-b from-[#040306] via-gray-950 to-[#040306] text-gray-100`}
-      >
-        <div className="landing-splash__bg">
-          <div className="landing-splash__blur landing-splash__blur--top" />
-          <div className="landing-splash__blur landing-splash__blur--left" />
-          <div className="landing-splash__blur landing-splash__blur--right" />
-        </div>
-
-        <div className="landing-splash__content">
-          <div className="landing-splash__orbit">
-            <div className="landing-splash__ring landing-splash__ring--outer" />
-            <div className="landing-splash__ring landing-splash__ring--mid" />
-            <div className="landing-splash__ring landing-splash__ring--inner" />
-            <div className="landing-splash__logo-shell">
-              <BrandLogo className="landing-splash__logo" />
-            </div>
-          </div>
-          <h1 className="landing-splash__title">SpooVault</h1>
-          <p className="landing-splash__subtitle">
-            Loading secure access on Avalanche
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div
-      className={`landing-page landing-web3 ${landingVariantClass} flex min-h-screen flex-col w-full max-w-[100vw] overflow-x-hidden bg-gradient-to-b from-[#040306] via-gray-950 to-[#040306] text-gray-100`}
-    >
-      <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
-        <div className="landing-grid-overlay" />
-        <div className="landing-scanline-overlay" />
-        <div className="landing-web3-aurora landing-web3-aurora--top" />
-        <div className="landing-web3-aurora landing-web3-aurora--mid" />
-        <div className="landing-web3-aurora landing-web3-aurora--bottom" />
+    <div className="min-h-screen bg-[#070a12] text-gray-100 selection:bg-purple-600/30 selection:text-purple-200 overflow-x-hidden font-sans">
+      {/* Background Ambient Glows & Grid */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[550px] bg-gradient-to-b from-purple-700/20 via-indigo-600/10 to-transparent blur-[140px] rounded-full" />
+        <div className="absolute top-[40%] -left-40 w-[600px] h-[600px] bg-cyan-600/10 blur-[150px] rounded-full" />
+        <div className="absolute top-[60%] -right-40 w-[600px] h-[600px] bg-purple-600/10 blur-[150px] rounded-full" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       </div>
 
-      {isMenuOpen && (
-        <button
-          type="button"
-          aria-label="Close navigation menu"
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] md:hidden"
-          onClick={() => setIsMenuOpen(false)}
-        />
-      )}
-
-      <div
-        className={`landing-fixed-top md:hidden fixed inset-x-3 top-4 z-50 mx-auto max-w-[30rem]${
-          isHeaderElevated ? " is-elevated" : ""
-        }`}
-      >
-        <div className="relative">
-          <div
-            className={`landing-mobile-header-bar w-full h-[4.5rem] rounded-2xl transition-all duration-300 px-4 flex items-center gap-3 ${
-              isHeaderElevated
-                ? "border border-white/15 bg-gray-950/92 backdrop-blur-2xl shadow-2xl shadow-black/90"
-                : "bg-transparent border-none"
-            }`}
-          >
-            <Link
-              to="/"
-              className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
-                <BrandLogo className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-[15px] font-bold leading-none truncate">
-                  SpooVault
-                </h1>
-              </div>
-            </Link>
-            <button
-              type="button"
-              aria-label="Toggle navigation menu"
-              className="w-10 h-10 rounded-xl bg-white/5 text-gray-200 flex items-center justify-center flex-shrink-0"
-              onClick={() => setIsMenuOpen((prev) => !prev)}
-            >
-              {isMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
-            </button>
-          </div>
-
-          <div
-            className={`overflow-hidden transition-all duration-300 ${
-              isMenuOpen
-                ? "max-h-[420px] opacity-100 mt-2"
-                : "max-h-0 opacity-0 mt-0"
-            }`}
-          >
-            <div className="landing-mobile-menu-panel w-full rounded-2xl border border-white/10 bg-gray-950/95 backdrop-blur-2xl p-2 shadow-2xl">
-              <nav className="space-y-1">
-                {navItems.map((item) => (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => {
-                      setActiveNav(item.href);
-                      setIsMenuOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
-                      activeNav === item.href
-                        ? "bg-white/15 text-white font-bold"
-                        : "text-gray-300 hover:bg-gray-800/60 hover:text-white"
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                  </a>
-                ))}
-              </nav>
-              <div className="pt-2">
-                <Link
-                  to="/dashboard"
-                  className="block w-full"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Button
-                    className={`w-full ${navButtonClass}`}
-                    endContent={
-                      <FiArrowRight className="text-[18px] transition-transform duration-300 group-hover:translate-x-1" />
-                    }
-                  >
-                    Launch App
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Floating Shoot-Out Desktop Header Navbar */}
+      {/* Floating Modern Header / Navbar */}
       <header
-        className={`hidden md:block fixed inset-x-0 top-0 z-50 transition-all duration-300 pointer-events-none ${
-          isHeaderElevated ? "pt-3 px-4 sm:px-6 lg:px-8" : "pt-5 px-6 lg:px-8"
+        className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+          isHeaderElevated
+            ? "py-3 px-4 sm:px-6 lg:px-8 bg-gray-950/85 backdrop-blur-2xl border-b border-gray-800/80 shadow-2xl shadow-black/80"
+            : "py-5 px-4 sm:px-6 lg:px-8 bg-transparent"
         }`}
       >
-        <div
-          className={`mx-auto pointer-events-auto transition-all duration-300 ${
-            isHeaderElevated
-              ? "max-w-6xl rounded-2xl border border-white/15 bg-gray-950/92 backdrop-blur-2xl shadow-2xl shadow-black/90 px-6 py-2.5"
-              : "max-w-7xl bg-transparent border-none px-2 py-2"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-4 h-12">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shadow-lg shadow-brand-900/20">
-                <BrandLogo className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                  SpooVault
-                </h1>
-                <p className="text-[11px] text-gray-400">
-                  Stellar & Avalanche Access Vault
-                </p>
-              </div>
-            </Link>
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          {/* Logo & Brand */}
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl bg-white/5 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-950/50 group-hover:border-purple-400 transition-colors">
+              <BrandLogo className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-xl font-bold tracking-tight text-white group-hover:text-purple-300 transition-colors">
+                SpooVault
+              </span>
+              <p className="text-[10px] text-purple-400/90 font-medium tracking-wider uppercase">
+                Stellar Soroban Custody
+              </p>
+            </div>
+          </Link>
 
-            <nav className="hidden lg:flex items-center gap-1 rounded-full bg-white/5 p-1.5 backdrop-blur-xl">
-              {navItems.map((item) => (
+          {/* Desktop Navigation Links */}
+          <nav className="hidden md:flex items-center gap-1 rounded-full border border-gray-800/80 bg-gray-900/60 p-1.5 backdrop-blur-xl">
+            {navLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="px-4 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          {/* Right Action Buttons */}
+          <div className="hidden sm:flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full border border-purple-900/50 bg-purple-950/30 text-xs font-medium text-purple-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              <span>Testnet Live</span>
+            </div>
+            <Link to="/dashboard">
+              <Button
+                className={`h-10 px-5 rounded-full font-bold text-xs tracking-wide bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white shadow-lg shadow-purple-900/40 hover:opacity-95 hover:scale-[1.02] transition-all`}
+                endContent={<FiArrowRight className="text-sm" />}
+              >
+                Launch App
+              </Button>
+            </Link>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            type="button"
+            aria-label="Toggle navigation menu"
+            className="md:hidden w-10 h-10 rounded-xl border border-gray-800 bg-gray-900/80 flex items-center justify-center text-gray-300 hover:text-white"
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+          >
+            {isMenuOpen ? <FiX size={20} /> : <FiMenu size={20} />}
+          </button>
+        </div>
+
+        {/* Mobile Dropdown Menu */}
+        {isMenuOpen && (
+          <div className="md:hidden mt-3 max-w-md mx-auto rounded-2xl border border-gray-800 bg-gray-950/95 backdrop-blur-2xl p-4 shadow-2xl space-y-3">
+            <nav className="space-y-1">
+              {navLinks.map((link) => (
                 <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setActiveNav(item.href)}
-                  className={`${headerTabClass} ${
-                    activeNav === item.href
-                      ? "bg-white/15 text-white font-bold rounded-full"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
-                  }`}
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800/60"
                 >
-                  {item.label}
+                  {link.label}
                 </a>
               ))}
             </nav>
-
-            <div className="flex items-center gap-3">
-              <Link to="/dashboard">
-                <Button
-                  className={navButtonClass}
-                  endContent={
-                    <FiArrowRight className="text-[16px] transition-transform duration-300 group-hover:translate-x-1" />
-                  }
-                >
+            <div className="pt-2 border-t border-gray-800">
+              <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                <Button className="w-full h-11 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white font-bold text-sm">
                   Launch App
                 </Button>
               </Link>
             </div>
           </div>
-        </div>
+        )}
       </header>
 
-      <div className="landing-main-fade flex-1">
-        <div className="h-[96px] sm:h-[104px]" aria-hidden="true" />
-
-        <section
-          id="hero"
-          className="landing-section relative px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16 sm:pb-24 overflow-hidden"
-        >
-          <div className="landing-hero-stage">
-            <div className="landing-hero-world-globe" />
-            <div className="landing-hero-beam" />
-
-            <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-              {/* Left Copy & Actions */}
-              <div
-                className="landing-hero-copy reveal-on-scroll"
-                data-reveal
-                data-reveal-delay="40"
-              >
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight text-white">
-                  Decentralized
-                  <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-purple-300 to-pink-500">
-                    Key Share Vault
-                  </span>
-                  <br />& Inheritance Protocol
-                </h1>
-
-                <p className="landing-hero-description mt-6 text-base sm:text-lg text-gray-300 max-w-xl leading-relaxed">
-                  Encrypt and store private keys, seed phrases, and confidential
-                  family records across Avalanche, Stellar, and Soroban with
-                  multi-guardian dead man's switch security.
-                </p>
-
-                <div className="landing-hero-actions mt-8 flex flex-wrap items-center gap-4">
-                  <Link to="/dashboard">
-                    <button className="h-12 px-8 rounded-full bg-white text-gray-950 font-bold text-sm tracking-wide transition-all duration-300 hover:bg-gray-200 hover:scale-105 shadow-lg shadow-white/10 flex items-center gap-2">
-                      <span>Explore</span>
-                      <FiArrowRight className="text-base" />
-                    </button>
-                  </Link>
-
-                  <a href="#video">
-                    <button className="h-12 px-7 rounded-full border border-gray-700 bg-gray-900/60 text-gray-200 font-semibold text-sm tracking-wide transition-all duration-300 hover:border-gray-500 hover:bg-gray-800 flex items-center gap-2.5">
-                      <div className="w-6 h-6 rounded-full border border-gray-400/80 flex items-center justify-center text-[10px] pl-0.5">
-                        ▶
-                      </div>
-                      <span>Learn More</span>
-                    </button>
-                  </a>
-                </div>
-
-                {/* Product Metrics Row (Borderless) */}
-                <div className="mt-14 pt-8 grid grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                      35K+
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-400 font-medium mt-1">
-                      Key Shares Encrypted
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                      17K+
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-400 font-medium mt-1">
-                      Active Access Vaults
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                      2.4K+
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-400 font-medium mt-1">
-                      Multi-Sig Guardians
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Side: Animated Dynamic Ecosystem 3D Glass Cards Stack */}
-              <div className="slab-stage hidden sm:block">
-                <div className="slab-card-stack">
-                  {/* Background Backing Slab Left */}
-                  <div className="slab-glass-card slab-glass-card--back-left">
-                    <div className="p-3">
-                      <div className="w-full h-56 rounded-xl bg-gradient-to-br from-purple-900/60 via-rose-950/40 to-black overflow-hidden flex items-center justify-center">
-                        <BrandLogo className="w-24 h-24 opacity-40 blur-[1px]" />
-                      </div>
-                      <div className="mt-4 px-2">
-                        <p className="text-[10px] text-gray-400 font-mono">
-                          STELLAR // ED25519 PASS
-                        </p>
-                        <p className="text-lg font-bold text-white mt-1">
-                          SpooVault XLM //
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Background Backing Slab Right */}
-                  <div className="slab-glass-card slab-glass-card--back-right">
-                    <div className="p-3">
-                      <div className="w-full h-56 rounded-xl bg-gradient-to-br from-emerald-900/60 via-teal-950/40 to-black overflow-hidden flex items-center justify-center">
-                        <BrandLogo className="w-24 h-24 opacity-40 blur-[1px]" />
-                      </div>
-                      <div className="mt-4 px-2">
-                        <p className="text-[10px] text-gray-400 font-mono">
-                          SOROBAN // WASM PASS
-                        </p>
-                        <p className="text-lg font-bold text-white mt-1">
-                          SpooVault Soroban //
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Main Dynamic Foreground Hero Slab */}
-                  {(() => {
-                    const currentCard = ecosystemCards[activeCardIdx];
-                    return (
-                      <div
-                        key={currentCard.id}
-                        className="slab-glass-card slab-glass-card--front transition-all duration-700 ease-out transform"
-                        style={{
-                          boxShadow: `0 40px 80px -20px rgba(0,0,0,0.95), 0 0 45px ${currentCard.glowColor}`,
-                        }}
-                      >
-                        <div className="slab-card-inner">
-                          <div className="slab-card-art">
-                            <div
-                              className={`absolute inset-0 bg-gradient-to-b ${currentCard.gradient} flex flex-col items-center justify-center p-6 text-center transition-all duration-700`}
-                            >
-                              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-xl mb-3 relative">
-                                <BrandLogo className="w-12 h-12" />
-                                <span className="absolute -top-1 -right-1 text-sm">
-                                  {currentCard.iconSymbol}
-                                </span>
-                              </div>
-                              <span
-                                className={`px-3 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wider transition-all duration-500 ${currentCard.badgeColor}`}
-                              >
-                                {currentCard.passName}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="slab-card-details">
-                            <p className="text-[10px] font-mono text-gray-400 tracking-wider transition-all duration-300">
-                              {currentCard.detailsTag}
-                            </p>
-
-                            <div className="mt-2 flex items-center justify-between">
-                              <div>
-                                <h3 className="text-2xl font-black text-white tracking-tight">
-                                  {currentCard.title}
-                                </h3>
-                                <p className="text-xl font-bold text-gray-200">
-                                  {currentCard.cardNumber}
-                                </p>
-                              </div>
-
-                              <div className="flex items-center gap-3">
-                                <span className="text-2xl font-mono text-gray-400 font-bold">
-                                  //
-                                </span>
-                                <div className="w-12 h-12 rounded-lg bg-white p-1 flex items-center justify-center shadow-md">
-                                  <svg
-                                    viewBox="0 0 24 24"
-                                    className="w-full h-full text-gray-950 fill-current"
-                                  >
-                                    <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm11-2h7v7h-7V2zm2 2v3h3V4h-3zM2 15h7v7H2v-7zm2 2v3h3v-3H4zm13-2h3v3h-3v-3zm0 4h5v3h-5v-3zm-4-4h2v7h-2v-7zm0-4h4v2h-4v-2z" />
-                                  </svg>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400 font-mono">
-                              <span>{currentCard.serial}</span>
-                              <span
-                                className={`font-bold ${
-                                  currentCard.badgeColor.split(" ")[0]
-                                }`}
-                              >
-                                {currentCard.badge}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Ecosystem Selector Buttons */}
-                <div className="mt-5 flex items-center justify-center gap-2 relative z-20">
-                  {ecosystemCards.map((card, idx) => (
-                    <button
-                      key={card.id}
-                      type="button"
-                      onClick={() => setActiveCardIdx(idx)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 ${
-                        activeCardIdx === idx
-                          ? "bg-white/15 text-white border border-white/30 shadow-lg scale-105"
-                          : "bg-white/5 text-gray-400 border border-transparent hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      <span>{card.iconSymbol}</span>
-                      <span>{card.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Video Overview Showcase Section */}
-        <section
-          id="video"
-          className="landing-section px-4 sm:px-6 lg:px-8 py-16 sm:py-24 relative overflow-hidden border-t border-gray-800/40 bg-gray-950/20"
-        >
-          <div
-            className="max-w-5xl mx-auto text-center reveal-on-scroll"
-            data-reveal
-            data-reveal-delay="30"
+      {/* Hero Section (modeled on video 00:00 - 00:05) */}
+      <section id="hero" className="relative pt-32 sm:pt-40 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 z-10 overflow-hidden">
+        {/* Floating Ambient Sparkles & Tech Shards (sampled from template video) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <span className="absolute top-1/4 left-[12%] text-cyan-400/60 text-lg animate-landing-sparkle select-none">
+            ✦
+          </span>
+          <span
+            className="absolute top-1/3 right-[15%] text-purple-400/70 text-2xl animate-landing-sparkle select-none"
+            style={{ animationDelay: "1.2s", animationDuration: "5s" }}
           >
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-purple-500/30 bg-purple-950/40 text-purple-300 text-xs font-semibold tracking-wide uppercase mb-4">
-              <FiPlay className="text-xs text-rose-400" />
-              <span>Product Overview & Walkthrough</span>
-            </div>
-
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight">
-              See How SpooVault Protects Your Digital Legacy
-            </h2>
-            <p className="mt-4 text-base sm:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
-              Watch our step-by-step preview on how encrypted secret shares,
-              multi-guardian consensus, and automated inheritance work
-              seamlessly across Stellar and Avalanche.
-            </p>
-
-            {/* Video Player Showcase Container */}
-            <div className="mt-10 relative rounded-3xl border border-gray-800/80 bg-gradient-to-b from-gray-900/90 via-gray-950 to-black/95 p-3 sm:p-5 shadow-2xl shadow-purple-950/30 overflow-hidden group">
-              <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-gray-950 flex items-center justify-center border border-white/5">
-                {/* Placeholder Ambient Background */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/80 via-rose-950/40 to-gray-950 flex items-center justify-center">
-                  <BrandLogo className="w-36 h-36 opacity-15 blur-sm" />
-                </div>
-
-                {/* Video Player Overlay Elements */}
-                <div className="relative z-10 flex flex-col items-center justify-center p-6 text-center">
-                  <div className="relative cursor-pointer group/btn">
-                    <div className="absolute -inset-4 rounded-full bg-rose-500/30 blur-xl group-hover/btn:bg-rose-500/50 transition-all duration-300 animate-pulse" />
-                    <button
-                      type="button"
-                      aria-label="Play SpooVault protocol overview video"
-                      className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-r from-rose-500 to-purple-600 text-white flex items-center justify-center shadow-2xl transition-all duration-300 group-hover/btn:scale-110"
-                    >
-                      <FiPlay className="w-8 h-8 sm:w-10 sm:h-10 ml-1 fill-current" />
-                    </button>
-                  </div>
-
-                  <h3 className="mt-6 text-lg sm:text-xl font-bold text-white">
-                    SpooVault Protocol Video Walkthrough
-                  </h3>
-                  <p className="mt-1 text-xs sm:text-sm text-gray-400 font-mono">
-                    [ Official Video Demo • Coming Soon ]
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="features"
-          className="landing-section landing-feature-section px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-y border-gray-800/50 bg-gray-950/25"
-        >
-          <div className="max-w-7xl mx-auto">
-            <div
-              className="max-w-3xl reveal-on-scroll"
-              data-reveal
-              data-reveal-delay="20"
-            >
-              <p className="text-sm text-brand-400 font-medium tracking-wide">
-                CORE CAPABILITIES
-              </p>
-              <h2 className="text-3xl sm:text-4xl font-bold mt-2">
-                Infrastructure for Living and Inheritance Access
-              </h2>
-              <p className="text-gray-400 mt-4">
-                Built to protect sensitive files, enforce approval policies, and
-                provide a verifiable release history.
-              </p>
-            </div>
-
-            <div
-              ref={featureSliderRef}
-              onScroll={handleSliderScroll("features")}
-              className="mt-8 feature-card-track"
-            >
-              {featureCards.map((feature, idx) => (
-                <div
-                  key={feature.title}
-                  data-slider-item
-                  className={`feature-card-item landing-feature-card landing-card reveal-on-scroll rounded-3xl border border-gray-800 bg-gray-900/40 p-6 ${
-                    activeMobileSlide.features === idx
-                      ? "is-active-mobile-slide"
-                      : ""
-                  }`}
-                  data-reveal
-                  data-reveal-delay={String(70 + idx * 70)}
-                >
-                  <div className="w-11 h-11 rounded-xl bg-brand-700/20 border border-brand-700/30 flex items-center justify-center text-brand-300 mb-4">
-                    {feature.icon}
-                  </div>
-                  <h3 className="text-xl font-semibold">{feature.title}</h3>
-                  <p className="text-sm text-gray-400 mt-2">
-                    {feature.description}
-                  </p>
-                  <div className="mt-4 space-y-2">
-                    {feature.points.map((point) => (
-                      <div
-                        key={point}
-                        className="flex items-center gap-2 text-sm text-gray-300"
-                      >
-                        <FiCheckCircle className="text-brand-500" />
-                        <span>{point}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div
-              className="mobile-slider-dots"
-              aria-label="Feature slider progress"
-            >
-              {featureCards.map((feature, idx) => (
-                <button
-                  key={feature.title}
-                  type="button"
-                  aria-label={`Show ${feature.title} feature`}
-                  onClick={() => scrollSliderToIndex("features", idx)}
-                  className={`mobile-slider-dot${
-                    activeMobileSlide.features === idx ? " is-active" : ""
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="workflow"
-          className="landing-section px-4 sm:px-6 lg:px-8 py-12 sm:py-16"
-        >
-          <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-6 sm:gap-8 items-start">
-            <div
-              className="landing-card landing-workflow-card reveal-on-scroll rounded-3xl border border-gray-800 bg-gray-900/35 p-6 sm:p-8"
-              data-reveal
-              data-reveal-delay="30"
-            >
-              <p className="text-sm text-brand-400 font-medium">WORKFLOW</p>
-              <h2 className="text-3xl font-bold mt-2">
-                Built for Real Family Continuity
-              </h2>
-              <p className="text-gray-400 mt-3">
-                Control access today, set emergency rules, and ensure the right
-                people can retrieve files later.
-              </p>
-
-              <div className="mt-6 space-y-4">
-                {[
-                  "Create an access vault and assign trusted guardians/executors",
-                  "Encrypt and upload sensitive family documents",
-                  "Issue access passes for family or delegates",
-                  "Approve release requests with threshold consensus when policy conditions are met",
-                ].map((item, idx) => (
-                  <div key={item} className="flex items-start gap-3">
-                    <div className="w-7 h-7 mt-0.5 rounded-lg bg-brand-700/20 border border-brand-700/40 text-brand-300 text-xs font-semibold flex items-center justify-center">
-                      {idx + 1}
-                    </div>
-                    <p className="text-sm sm:text-base text-gray-300">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div
-              id="security"
-              className="landing-card landing-security-card reveal-on-scroll rounded-3xl border border-gray-800 bg-gray-900/35 p-6 sm:p-8"
-              data-reveal
-              data-reveal-delay="80"
-            >
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-brand-700/20 border border-brand-700/30 flex items-center justify-center text-brand-300">
-                  <FiFileText className="text-xl" />
-                </div>
-                <div>
-                  <p className="text-sm text-brand-400 font-medium">
-                    SECURITY MODEL
-                  </p>
-                  <h3 className="text-2xl font-semibold">
-                    Protection by Design
-                  </h3>
-                </div>
-              </div>
-              <div className="space-y-4">
-                {securityItems.map((item, idx) => (
-                  <div
-                    key={item.title}
-                    className="landing-card reveal-on-scroll rounded-2xl border border-gray-800 bg-gray-900/55 p-4"
-                    data-reveal
-                    data-reveal-delay={String(130 + idx * 60)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5">{item.icon}</div>
-                      <div>
-                        <p className="font-medium">{item.title}</p>
-                        <p className="text-sm text-gray-400 mt-1">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="landing-section px-4 sm:px-6 lg:px-8 pb-16 sm:pb-20">
-          <div
-            className="landing-card landing-cta-panel reveal-on-scroll max-w-5xl mx-auto rounded-3xl border border-gray-800 bg-gradient-to-r from-gray-900/80 to-gray-900/45 p-8 sm:p-10 text-center"
-            data-reveal
-            data-reveal-delay="20"
+            ✦
+          </span>
+          <span
+            className="absolute top-2/3 left-[8%] text-indigo-400/50 text-sm animate-landing-sparkle select-none"
+            style={{ animationDelay: "2.4s", animationDuration: "4.5s" }}
           >
-            <p className="text-sm text-brand-400 font-medium">
-              READY FOR REAL-WORLD USE
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-bold mt-2">
-              Deploy a Theft-Resistant Access Platform
-            </h2>
-            <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
-              Start with access vault creation, encrypted storage, and
-              policy-based release for both living and inheritance scenarios.
-            </p>
-            <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
-              <span className="golden-button-orbit inline-flex w-full max-w-full sm:w-auto">
-                <Link to="/dashboard" className="block w-full sm:w-auto">
-                  <Button
-                    className={`w-full sm:w-auto ${solidButtonClass}`}
-                    endContent={
-                      <FiArrowRight className="text-[16px] transition-transform duration-300 group-hover:translate-x-1" />
-                    }
-                  >
-                    Open Access Dashboard
-                  </Button>
-                </Link>
-              </span>
-              <a href="#features" className="w-full sm:w-auto">
-                <Button
-                  className={`w-full sm:w-auto ${solidButtonClass}`}
-                  endContent={
-                    <FiArrowRight className="text-[16px] transition-transform duration-300 group-hover:translate-x-1" />
-                  }
-                >
-                  Explore Capabilities
-                </Button>
-              </a>
-            </div>
-          </div>
-        </section>
-      </div>
+            ✧
+          </span>
+          <span
+            className="absolute top-1/2 right-[8%] text-cyan-300/60 text-xl animate-landing-sparkle select-none"
+            style={{ animationDelay: "0.8s", animationDuration: "6s" }}
+          >
+            ✦
+          </span>
+          <span
+            className="absolute bottom-1/4 right-[25%] text-purple-300/50 text-base animate-landing-sparkle select-none"
+            style={{ animationDelay: "1.8s" }}
+          >
+            ✧
+          </span>
+          <span
+            className="absolute top-1/5 left-[30%] text-cyan-400/40 text-xs animate-landing-sparkle select-none"
+            style={{ animationDelay: "3s" }}
+          >
+            ✦
+          </span>
+        </div>
 
-      <footer className="landing-footer shrink-0 border-t border-gray-800/60 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-white/5 border border-gray-700/60 flex items-center justify-center">
-              <BrandLogo className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold">SpooVault</p>
-              <p className="text-[11px] text-gray-500">
-                Secure access vault on Avalanche
-              </p>
-            </div>
+        <div className="max-w-5xl mx-auto text-center space-y-6 relative">
+          {/* Top Pill Tag */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-950/30 text-xs font-semibold text-cyan-300 shadow-[0_0_15px_-3px_rgba(6,182,212,0.3)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="tracking-wide uppercase text-[11px]">
+              Unified Product, Secure Soroban Custody
+            </span>
           </div>
-          <p className="text-xs text-gray-500">
-            {getCurrentYear()} SpooVault. Secure by default.
+
+          {/* Large Bold Headline with Animated Shimmer */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-white">
+            On-Chain Custody &amp; Inheritance
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400 text-gradient-animated">
+              for a New Financial Era
+            </span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="max-w-2xl mx-auto text-base sm:text-lg text-gray-300 leading-relaxed font-normal">
+            Immerse yourself in SpooVault to encrypt, protect, and pass on your digital assets and private keys with automated multi-sig guardians and dead-man&apos;s switch on Stellar.
           </p>
+
+          {/* Action Buttons */}
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link to="/dashboard" className="w-full sm:w-auto">
+              <Button
+                className="w-full sm:w-auto h-12 px-8 rounded-full font-bold text-sm bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 text-gray-950 shadow-xl shadow-cyan-500/20 hover:scale-105 hover:opacity-95 transition-all"
+                endContent={<FiArrowRight className="text-base" />}
+              >
+                Launch App
+              </Button>
+            </Link>
+            <a href="#vaults" className="w-full sm:w-auto">
+              <Button
+                className="w-full sm:w-auto h-12 px-7 rounded-full font-semibold text-sm border border-gray-700/80 bg-gray-900/60 text-gray-200 hover:border-purple-500 hover:bg-gray-900/90 transition-all"
+              >
+                Explore Vaults
+              </Button>
+            </a>
+          </div>
+
+          {/* Supported Ecosystem Badges */}
+          <div className="pt-8 flex flex-wrap items-center justify-center gap-3">
+            {[
+              { name: "Stellar XLM", icon: "🚀" },
+              { name: "Soroban WASM", icon: "⚡" },
+              { name: "Freighter Wallet", icon: "🦊" },
+              { name: "IPFS Encrypted", icon: "🌐" },
+              { name: "WebAuthn Passkeys", icon: "🔐" },
+            ].map((badge) => (
+              <div
+                key={badge.name}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-800 bg-gray-900/50 text-xs text-gray-400 font-medium hover:border-gray-700 hover:text-gray-200 transition-colors"
+              >
+                <span>{badge.icon}</span>
+                <span>{badge.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Dashboard Preview Terminal (Floating 3D & Ambient Glow, modeled on video 00:05 - 00:08) */}
+        <div className="mt-14 max-w-5xl mx-auto">
+          <div className="relative rounded-2xl border border-gray-800/90 bg-gray-950/80 backdrop-blur-2xl p-4 sm:p-6 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.25)] animate-landing-float animate-landing-glow">
+            {/* Terminal Top Window Bar */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800/80 mb-5">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+                <span className="w-3 h-3 rounded-full bg-[#febc2e]" />
+                <span className="w-3 h-3 rounded-full bg-[#28c840]" />
+                <span className="ml-2 text-xs font-mono text-gray-400 truncate">
+                  spoovault-core :: stellar-testnet-soroban
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-purple-300 font-mono">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>ONLINE &amp; SYNCED</span>
+              </div>
+            </div>
+
+            {/* Dashboard Content Mockup */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+              {/* Metric 1 */}
+              <div className="rounded-xl border border-gray-800/80 bg-gray-900/50 p-4">
+                <p className="text-xs text-gray-400 font-medium">TOTAL PROTECTED VALUE</p>
+                <p className="text-2xl sm:text-3xl font-black text-white mt-1">$2,155,000</p>
+                <p className="text-[11px] text-emerald-400 font-mono mt-1">+100% Cryptographically Encrypted</p>
+              </div>
+
+              {/* Metric 2 */}
+              <div className="rounded-xl border border-gray-800/80 bg-gray-900/50 p-4">
+                <p className="text-xs text-gray-400 font-medium">GUARDIAN CONSENSUS</p>
+                <p className="text-2xl sm:text-3xl font-black text-white mt-1">3 / 5 Threshold</p>
+                <p className="text-[11px] text-purple-400 font-mono mt-1">Quorum Required for Release</p>
+              </div>
+
+              {/* Metric 3: Live Heartbeat Countdown */}
+              <div className="rounded-xl border border-purple-900/60 bg-purple-950/30 p-4 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-purple-300 font-medium">PROOF-OF-LIFE COUNTDOWN</p>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-mono">
+                      ACTIVE
+                    </span>
+                  </div>
+                  <p className="text-xl sm:text-2xl font-mono font-bold text-white mt-1">
+                    {formatCountdown(heartbeatSeconds)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePingHeartbeat}
+                  className="mt-3 w-full py-1.5 rounded-lg border border-purple-500/50 bg-purple-600/20 text-purple-200 text-xs font-semibold hover:bg-purple-600/30 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <FiClock className="text-xs" />
+                  <span>Ping Heartbeat (Simulate)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Simulated Encrypted Documents Table */}
+            <div className="rounded-xl border border-gray-800/80 bg-gray-900/40 p-4">
+              <div className="flex items-center justify-between mb-3 text-xs text-gray-400">
+                <span className="font-semibold text-gray-300">PROTECTED ASSETS &amp; RECORDS</span>
+                <span>3 ITEMS ENCRYPTED</span>
+              </div>
+              <div className="space-y-2 text-xs font-mono">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-950/60 border border-gray-800/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-purple-400">📄</span>
+                    <span className="text-gray-200">ledger-primary-seed.enc</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-500/30">
+                    AES-GCM-256 // IPFS
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-950/60 border border-gray-800/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-cyan-400">🔑</span>
+                    <span className="text-gray-200">emergency-vault-key-shard-1.enc</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
+                    SHAMIR QUORUM
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-950/60 border border-gray-800/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-400">📑</span>
+                    <span className="text-gray-200">family-trust-execution-will.enc</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-950/80 text-purple-300 border border-purple-500/30">
+                    TIMELOCKED SOROBAN
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust & Performance Counter (modeled on video 00:09 - 00:10) */}
+      <section className="relative py-20 px-4 sm:px-6 lg:px-8 border-y border-gray-800/80 bg-gray-950/40 z-10">
+        <div className="max-w-5xl mx-auto text-center space-y-4 mb-12">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white">
+            Built on Trust, Backed by Stellar Soroban
+          </h2>
+          <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-400">
+            Experience unwavering confidence with cryptographic zero-knowledge encryption, multi-party threshold consensus, and decentralized audit trails.
+          </p>
+        </div>
+
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+          {statMetrics.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-gray-800/80 bg-gray-900/40 p-6 text-center hover:border-purple-500/50 transition-colors"
+            >
+              <div className="text-3xl mb-2">{stat.icon}</div>
+              <p className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                {stat.value}
+              </p>
+              <p className="text-xs sm:text-sm text-gray-400 font-medium mt-1">
+                {stat.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Decentralized Custody Journey Showcase (modeled on video 00:11 - 00:15) */}
+      <section id="vaults" className="relative py-24 px-4 sm:px-6 lg:px-8 z-10">
+        <div className="max-w-6xl mx-auto text-center space-y-4 mb-14">
+          <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+            Start your journey into decentralized custody today
+          </h2>
+          <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-400">
+            Discover our highest-security digital inheritance, multi-sig vaults, and access passes.
+          </p>
+        </div>
+
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {journeyCards.map((card) => (
+            <div
+              key={card.code}
+              className={`group rounded-2xl border border-gray-800/80 bg-gradient-to-b ${card.gradient} p-5 flex flex-col justify-between transition-all duration-300 ${card.borderHover} hover:scale-[1.02] shadow-xl`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <span className="text-2xl">{card.icon}</span>
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${card.badgeColor}`}
+                  >
+                    {card.badge}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors">
+                  {card.title}
+                </h3>
+                <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                  {card.description}
+                </p>
+              </div>
+
+              <div className="mt-6 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs">
+                <span className="text-gray-500 font-mono">{card.statLabel}</span>
+                <span className="text-gray-200 font-semibold font-mono">{card.statValue}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Power Up Your Custody Feature Grid (modeled on video 00:16 - 00:17) */}
+      <section id="features" className="relative py-24 px-4 sm:px-6 lg:px-8 border-t border-gray-800/80 bg-gray-950/60 z-10">
+        <div className="max-w-5xl mx-auto text-center space-y-4 mb-16">
+          <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+            Power Up Your Custody
+          </h2>
+          <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-400">
+            Decentralized. Permissionless. Powerful. Secure secrets and digital assets with zero-knowledge privacy across Stellar.
+          </p>
+        </div>
+
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {featureCards.map((feat) => (
+            <div
+              key={feat.title}
+              className="rounded-2xl border border-gray-800/80 bg-gray-900/40 p-6 flex flex-col justify-between hover:border-purple-500/50 hover:bg-gray-900/70 transition-all"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-white/5 border border-gray-800 flex items-center justify-center mb-4">
+                  {feat.icon}
+                </div>
+                <h3 className="text-lg font-bold text-white">{feat.title}</h3>
+                <p className="text-xs sm:text-sm text-gray-400 mt-2 leading-relaxed">
+                  {feat.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Frequently Asked Questions (modeled on video 00:18 - 00:30) */}
+      <section id="faq" className="relative py-24 px-4 sm:px-6 lg:px-8 z-10">
+        <div className="max-w-3xl mx-auto text-center space-y-4 mb-14">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            Frequently Asked Questions
+          </h2>
+          <p className="text-sm sm:text-base text-gray-400">
+            The key to seamless custody: clear answers to how SpooVault protects your assets.
+          </p>
+        </div>
+
+        <div className="max-w-3xl mx-auto space-y-3">
+          {faqs.map((faq, idx) => {
+            const isOpen = openFaqIdx === idx;
+            return (
+              <div
+                key={faq.q}
+                className="rounded-2xl border border-gray-800/80 bg-gray-900/50 overflow-hidden transition-colors"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
+                  className="w-full p-5 text-left flex items-center justify-between gap-4 font-semibold text-sm sm:text-base text-gray-200 hover:text-white"
+                >
+                  <span>{faq.q}</span>
+                  <span className="text-purple-400 flex-shrink-0 text-base">
+                    {isOpen ? <FiMinus /> : <FiPlus />}
+                  </span>
+                </button>
+                {isOpen && (
+                  <div className="px-5 pb-5 text-xs sm:text-sm text-gray-400 leading-relaxed border-t border-gray-800/60 pt-3">
+                    {faq.a}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Final Call to Action Panel */}
+      <section className="relative py-20 px-4 sm:px-6 lg:px-8 z-10">
+        <div className="max-w-4xl mx-auto rounded-3xl border border-purple-500/40 bg-gradient-to-r from-purple-950/70 via-indigo-950/50 to-gray-950 p-8 sm:p-12 text-center shadow-2xl shadow-purple-950/50">
+          <p className="text-xs text-purple-300 font-bold tracking-wider uppercase">
+            Ready for Real-World Deployment
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-black text-white mt-2">
+            Secure Your Legacy on Stellar Soroban
+          </h2>
+          <p className="text-sm sm:text-base text-gray-300 mt-3 max-w-xl mx-auto">
+            Create an access vault in minutes, set up proof-of-life intervals, and ensure peace of mind for your family.
+          </p>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link to="/dashboard">
+              <Button
+                className="h-12 px-8 rounded-full font-bold text-sm bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white shadow-xl hover:opacity-95 hover:scale-105 transition-all"
+                endContent={<FiArrowRight />}
+              >
+                Launch Access Dashboard
+              </Button>
+            </Link>
+            <Link to="/docs">
+              <Button
+                className="h-12 px-7 rounded-full font-semibold text-sm border border-gray-700 bg-gray-900/60 text-gray-200 hover:border-gray-500 transition-all"
+              >
+                Read Documentation
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Rich SEO & Maintainers Footer (carrying profiles and important information) */}
+      <footer className="relative border-t border-gray-800/80 bg-gray-950/90 pt-16 pb-12 px-4 sm:px-6 lg:px-8 z-10">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-gray-800/80">
+          {/* Column 1: Brand & Status */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/5 border border-purple-500/40 flex items-center justify-center shadow-lg shadow-purple-950/50">
+                <BrandLogo className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white leading-none">SpooVault</p>
+                <p className="text-[10px] text-purple-400 font-mono mt-1">
+                  STELLAR // SOROBAN CUSTODY
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Decentralized on-chain key custody, multi-sig dead-man&apos;s switch, and digital inheritance protocol built natively for the Stellar Network.
+            </p>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-purple-900/50 bg-purple-950/30 text-[11px] font-medium text-purple-300 w-fit">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              <span>Stellar Testnet Live</span>
+            </div>
+          </div>
+
+          {/* Column 2: Profiles & Maintainers */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-gray-200 uppercase tracking-wider font-mono">
+              Maintainers &amp; Profiles
+            </p>
+            <ul className="space-y-2 text-xs text-gray-400">
+              <li>
+                <a
+                  href="https://github.com/spoovault"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-purple-300 transition-colors flex items-center gap-1.5"
+                >
+                  <FiGithub className="text-sm" />
+                  <span>SpooVault GitHub Profile</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://drips.network"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-purple-300 transition-colors flex items-center gap-1.5"
+                >
+                  <FiExternalLink className="text-sm" />
+                  <span>Drips Wave OSS Program</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://communityfund.stellar.org"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-purple-300 transition-colors flex items-center gap-1.5"
+                >
+                  <FiExternalLink className="text-sm" />
+                  <span>Stellar Community Fund (SCF)</span>
+                </a>
+              </li>
+              <li>
+                <Link to="/profile" className="hover:text-purple-300 transition-colors flex items-center gap-1.5">
+                  <FiShield className="text-sm" />
+                  <span>User Keyring &amp; Passkeys</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 3: Protocol Architecture */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-gray-200 uppercase tracking-wider font-mono">
+              Protocol Architecture
+            </p>
+            <ul className="space-y-2 text-xs text-gray-400">
+              <li>
+                <Link to="/docs" className="hover:text-purple-300 transition-colors">
+                  Soroban Smart Contracts (Rust / WASM)
+                </Link>
+              </li>
+              <li>
+                <Link to="/docs" className="hover:text-purple-300 transition-colors">
+                  Dead-Man&apos;s Switch &amp; Proof of Life
+                </Link>
+              </li>
+              <li>
+                <Link to="/docs" className="hover:text-purple-300 transition-colors">
+                  Shamir Secret Sharing (SSS 3-of-5)
+                </Link>
+              </li>
+              <li>
+                <Link to="/docs" className="hover:text-purple-300 transition-colors">
+                  WebAuthn Hardware Passkeys (FIDO2)
+                </Link>
+              </li>
+              <li>
+                <Link to="/docs" className="hover:text-purple-300 transition-colors">
+                  Client-Side AES-GCM-256 + ECIES
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 4: Resources & Ecosystem */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-gray-200 uppercase tracking-wider font-mono">
+              Ecosystem &amp; App
+            </p>
+            <ul className="space-y-2 text-xs text-gray-400">
+              <li>
+                <Link to="/dashboard" className="hover:text-purple-300 transition-colors">
+                  Dashboard
+                </Link>
+              </li>
+              <li>
+                <Link to="/vaults" className="hover:text-purple-300 transition-colors">
+                  Access Vaults
+                </Link>
+              </li>
+              <li>
+                <Link to="/documents" className="hover:text-purple-300 transition-colors">
+                  Encrypted Documents
+                </Link>
+              </li>
+              <li>
+                <Link to="/access" className="hover:text-purple-300 transition-colors">
+                  My Beneficiary Access
+                </Link>
+              </li>
+              <li>
+                <Link to="/nfts" className="hover:text-purple-300 transition-colors">
+                  Access Passes
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Bottom Copyright & Social Links */}
+        <div className="max-w-7xl mx-auto pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
+          <p>© {getCurrentYear()} SpooVault. Stellar Soroban Custody Protocol. All rights reserved.</p>
+          <div className="flex items-center gap-4 text-gray-400">
+            <a
+              href="https://github.com/spoovault"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-purple-300 transition-colors"
+              aria-label="GitHub"
+            >
+              <FiGithub size={16} />
+            </a>
+            <a
+              href="https://twitter.com/spoovault"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-purple-300 transition-colors"
+              aria-label="Twitter"
+            >
+              <FiTwitter size={16} />
+            </a>
+            <a
+              href="https://t.me/spoovault"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-purple-300 transition-colors"
+              aria-label="Telegram"
+            >
+              <FiSend size={16} />
+            </a>
+          </div>
         </div>
       </footer>
     </div>

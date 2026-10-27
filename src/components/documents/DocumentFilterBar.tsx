@@ -78,9 +78,6 @@ export const DocumentFilterBar: React.FC<DocumentFilterBarProps> = ({
               <option value="ALL" className="bg-slate-900 text-white">
                 All Networks
               </option>
-              <option value="AVALANCHE" className="bg-slate-900 text-white">
-                Avalanche Fuji (EVM)
-              </option>
               <option value="STELLAR" className="bg-slate-900 text-white">
                 Stellar Soroban
               </option>

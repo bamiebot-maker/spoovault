@@ -180,6 +180,9 @@ export class SessionLockManager {
   /** Immediately purge decrypted keys from memory and notify listeners. */
   lockNow(): void {
     const accounts = this.accountsProvider ? this.accountsProvider() : [];
+    if (accounts.length === 0) {
+      return;
+    }
     for (const account of accounts) {
       const bytes = clientKeyringService.getCachedPrivateKeyBytes(account);
       if (bytes) zeroKeyBuffer(bytes, this.platform);

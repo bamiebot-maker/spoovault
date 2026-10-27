@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { ethers } from "ethers";
 
 const root = process.cwd();
 const envPath = path.join(root, ".env");
@@ -29,20 +28,9 @@ const localEnv = readEnvFile(envPath);
 const sampleEnv = readEnvFile(envExamplePath);
 const env = { ...sampleEnv, ...localEnv };
 
-const rpc = env.VITE_AVALANCHE_RPC;
-const address = env.VITE_CONTRACT_ADDRESS;
-const deployBlock = Number(env.VITE_CONTRACT_DEPLOY_BLOCK || "0");
-
-if (!rpc) {
-  console.log("SKIP: Missing VITE_AVALANCHE_RPC in .env");
-  process.exit(0);
-}
-if (!address || !ethers.isAddress(address)) {
-  console.log("SKIP: Missing or invalid VITE_CONTRACT_ADDRESS in .env");
-  process.exit(0);
-}
-
-const provider = new ethers.JsonRpcProvider(rpc);
+const sorobanRpc = env.VITE_STELLAR_SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
+const horizonUrl = env.VITE_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org";
+const stellarAddress = env.VITE_STELLAR_CONTRACT_ADDRESS;
 
 const assertStep = async (name, fn) => {
   try {
@@ -55,44 +43,36 @@ const assertStep = async (name, fn) => {
   }
 };
 
-let latestBlock = null;
-try {
-  latestBlock = await provider.getBlockNumber();
-  console.log(`PASS: RPC reachable -> latest block ${latestBlock}`);
-} catch {
-  console.log("SKIP: RPC unreachable from current environment");
-  process.exit(0);
-}
-
-await assertStep("Contract address checksum", async () =>
-  ethers.getAddress(address)
-);
-
-await assertStep("Contract code exists", async () => {
-  const code = await provider.getCode(address);
-  if (!code || code === "0x") {
-    throw new Error("No contract code at configured address");
-  }
-  return `${Math.max(0, (code.length - 2) / 2)} bytes`;
-});
-
-await assertStep("Read totalSupply()", async () => {
-  const abi = ["function totalSupply() view returns (uint256)"];
-  const contract = new ethers.Contract(address, abi, provider);
-  const supply = await contract.totalSupply();
-  return supply.toString();
-});
-
-if (deployBlock > 0) {
-  await assertStep("Deploy block sanity", async () => {
-    const latest = latestBlock ?? (await provider.getBlockNumber());
-    if (deployBlock > latest) {
-      throw new Error(
-        `deploy block ${deployBlock} is above latest block ${latest}`
-      );
-    }
-    return `${deployBlock}`;
+// 1. Check Soroban Testnet RPC
+await assertStep("Soroban RPC Health", async () => {
+  const res = await fetch(sorobanRpc, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getHealth",
+    }),
   });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.result?.status || "healthy";
+});
+
+// 2. Check Stellar Horizon
+await assertStep("Stellar Horizon Connectivity", async () => {
+  const res = await fetch(`${horizonUrl}/`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return `network_passphrase: "${data.network_passphrase}"`;
+});
+
+// 3. Contract check if configured
+if (stellarAddress && /^C[A-Z2-7]{55}$/.test(stellarAddress)) {
+  console.log(`PASS: Stellar Soroban Contract Configured -> ${stellarAddress}`);
+} else {
+  console.log("INFO: VITE_STELLAR_CONTRACT_ADDRESS not yet deployed to testnet (ready for Phase 2)");
 }
 
-console.log("PASS: Smoke check complete");
+console.log("PASS: SpooVault Stellar smoke check complete");

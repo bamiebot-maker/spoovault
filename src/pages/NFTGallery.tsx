@@ -18,7 +18,6 @@ import {
   FiShield,
   FiDownload,
   FiExternalLink,
-  FiAlertCircle,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useWeb3 } from "../context/Web3Context";
@@ -56,7 +55,7 @@ const buildDefaultTokenURI = (vaultId: number, recipient: string): string => {
     attributes: [
       { trait_type: "Vault ID", value: vaultId },
       { trait_type: "Recipient", value: recipient.toLowerCase() },
-      { trait_type: "Network", value: "Avalanche" },
+      { trait_type: "Network", value: "Stellar Soroban" },
     ],
   };
 
@@ -67,13 +66,12 @@ const buildDefaultTokenURI = (vaultId: number, recipient: string): string => {
 type TokenMetadata = Record<string, unknown>;
 
 const getExplorerTokenUrl = (tokenId: number): string => {
-  const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS as
-    | string
-    | undefined;
+  const contractAddress = (import.meta.env.VITE_STELLAR_CONTRACT_ADDRESS ||
+    import.meta.env.VITE_CONTRACT_ADDRESS) as string | undefined;
   if (!contractAddress) {
-    return getSharedExplorerBaseUrl("avalanche");
+    return getSharedExplorerBaseUrl("stellar");
   }
-  return getSharedExplorerTokenUrl(tokenId, contractAddress, "avalanche");
+  return getSharedExplorerTokenUrl(tokenId, contractAddress, "stellar");
 };
 
 const decodeInlineJsonTokenURI = (tokenURI: string): TokenMetadata | null => {
@@ -133,8 +131,7 @@ const NFTGallery = () => {
     onOpen: onViewModalOpen,
     onClose: onViewModalClose,
   } = useDisclosure();
-  const { account, isConnected, connect, provider, signer, isFujiNetwork } =
-    useWeb3();
+  const { account, isConnected, connect } = useWeb3();
 
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [vaults, setVaults] = useState<VaultData[]>([]);
@@ -163,8 +160,7 @@ const NFTGallery = () => {
     "h-11 w-full rounded-full border border-gray-700/80 bg-gray-900/75 px-4 pr-10 text-sm text-gray-100 outline-none transition-colors hover:border-gray-600 focus:border-brand-700/70";
 
   useEffect(() => {
-    if (isConnected && provider && signer && isFujiNetwork) {
-      contractService.initialize(provider, signer);
+    if (isConnected && account) {
       loadTokens();
     } else {
       setTokens([]);
@@ -173,7 +169,7 @@ const NFTGallery = () => {
       setTotalSupply(0);
       setLoading(false);
     }
-  }, [account, isConnected, provider, signer, isFujiNetwork]);
+  }, [account, isConnected]);
 
   const loadTokens = async () => {
     if (!account) {
@@ -230,11 +226,6 @@ const NFTGallery = () => {
       return;
     }
 
-    if (!isFujiNetwork) {
-      toast.error("Please switch to Avalanche Fuji network");
-      return;
-    }
-
     const vaultId = Number(form.vaultId);
     if (!vaultId) {
       toast.error("Vault ID is required");
@@ -250,8 +241,8 @@ const NFTGallery = () => {
       return;
     }
 
-    if (!isValidAddress(form.recipient)) {
-      toast.error("Invalid recipient address");
+    if (!isValidAddress(form.recipient, "stellar") && !isValidAddress(form.recipient)) {
+      toast.error("Invalid recipient address. Please enter a valid Stellar address (G...).");
       return;
     }
 
@@ -473,36 +464,7 @@ const NFTGallery = () => {
             onPress={connect}
             startContent={<FiKey />}
           >
-            Connect Wallet
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isFujiNetwork) {
-    return (
-      <div className="space-y-8">
-        <div className="rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 p-8 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <FiAlertCircle className="text-white text-3xl" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Wrong Network</h1>
-          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Please switch to Avalanche Fuji Testnet to manage access passes.
-          </p>
-          <Button
-            size="lg"
-            className={buttonClasses.warningLg}
-            onPress={() =>
-              window.ethereum &&
-              window.ethereum.request({
-                method: "wallet_switchEthereumChain",
-                params: [{ chainId: "0xA869" }],
-              })
-            }
-          >
-            Switch to Fuji Network
+            Connect Freighter
           </Button>
         </div>
       </div>
@@ -707,7 +669,7 @@ const NFTGallery = () => {
                   Recipient Address
                 </p>
                 <Input
-                  placeholder="0x..."
+                  placeholder="Enter recipient Stellar address (G...)"
                   value={form.recipient}
                   onValueChange={(value) =>
                     setForm({ ...form, recipient: value })

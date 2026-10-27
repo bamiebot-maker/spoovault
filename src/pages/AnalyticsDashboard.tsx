@@ -99,10 +99,6 @@ const AnalyticsDashboard = () => {
     account,
     isConnected,
     connect,
-    provider,
-    signer,
-    isFujiNetwork,
-    ecosystem,
   } = useWeb3();
   const prefersReducedMotion = useReducedMotion();
 
@@ -117,13 +113,7 @@ const AnalyticsDashboard = () => {
   const [recordingVaultId, setRecordingVaultId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (
-      isConnected &&
-      ((provider && signer && isFujiNetwork) || ecosystem === "stellar")
-    ) {
-      if (provider && signer) {
-        contractService.initialize(provider, signer);
-      }
+    if (isConnected && account) {
       void loadAnalytics();
     } else {
       loadVersionRef.current += 1;
@@ -133,7 +123,7 @@ const AnalyticsDashboard = () => {
       setActivity([]);
       setReleaseStates({});
     }
-  }, [account, isConnected, provider, signer, isFujiNetwork, ecosystem]);
+  }, [account, isConnected]);
 
   const loadAnalytics = async (options?: { silent?: boolean }) => {
     if (!account) {
@@ -309,34 +299,7 @@ const AnalyticsDashboard = () => {
     );
   }
 
-  if (ecosystem !== "stellar" && !isFujiNetwork) {
-    return (
-      <div className="min-h-[calc(100vh-11rem)] flex items-center justify-center">
-        <div className={`w-full max-w-4xl p-8 text-center ${glassCard}`}>
-          <div className="w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <FiAlertTriangle className="text-white text-3xl" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Wrong Network</h1>
-          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Please switch to Avalanche Fuji Testnet to view security analytics.
-          </p>
-          <Button
-            size="lg"
-            className={buttonClasses.warningLg}
-            onPress={() =>
-              window.ethereum &&
-              window.ethereum.request({
-                method: "wallet_switchEthereumChain",
-                params: [{ chainId: "0xA869" }],
-              })
-            }
-          >
-            Switch to Fuji Network
-          </Button>
-        </div>
-      </div>
-    );
-  }
+
 
   const animationDuration = prefersReducedMotion ? 0 : 0.8;
 
@@ -354,7 +317,7 @@ const AnalyticsDashboard = () => {
               </h1>
               <p className="text-sm text-gray-400">
                 Live vault health, guardian coverage, and inheritance readiness
-                on {ecosystem === "stellar" ? "Stellar" : "Avalanche Fuji"}.
+                on Stellar Soroban.
               </p>
             </div>
           </div>
@@ -809,7 +772,6 @@ const AnalyticsDashboard = () => {
                         }}
                       />
                     </div>
-                    {ecosystem === "avalanche" && (
                       <Button
                         size="sm"
                         variant="flat"
@@ -821,7 +783,6 @@ const AnalyticsDashboard = () => {
                       >
                         Record Heartbeat
                       </Button>
-                    )}
                   </div>
                 );
               })}
