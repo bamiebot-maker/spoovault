@@ -41,13 +41,13 @@ By leveraging Stellar's 5-second ledger finality, fractions-of-a-cent fees, and 
 
 ```mermaid
 graph TD
-    A[Vault Creator / Owner] -->|1. Client-Side ECIES AES-GCM Encrypt| B(Pinata IPFS Decentralized Storage)
-    A -->|2. Deploy Vault & Timeout on Stellar| C(Soroban Dead Man's Switch Contract)
-    D[Authorized Automation Keeper] -.->|3. Relay Heartbeat prove_life| C
-    A -->|4. Split Decryption Key via SSS| E[(k, n) Trusted Guardians]
-    C -->|5. Heartbeat Lapses / Inactivity Expiration| F[Emergency Release Mode]
+    A["Vault Creator / Owner"] -->|1. Client-Side ECIES AES-GCM Encrypt| B["Pinata IPFS Decentralized Storage"]
+    A -->|2. Deploy Vault & Timeout on Stellar| C["Soroban Dead Man's Switch Contract"]
+    D["Authorized Automation Keeper"] -.->|3. Relay Heartbeat prove_life| C
+    A -->|4. Split Decryption Key via SSS| E["(k, n) Trusted Guardians"]
+    C -->|5. Heartbeat Lapses / Inactivity Expiration| F["Emergency Release Mode"]
     E -->|6. Threshold Shard Approval| C
-    C -->|7. Access Pass Verification & Decryption| G[Beneficiary Inheritance Portal]
+    C -->|7. Access Pass Verification & Decryption| G["Beneficiary Inheritance Portal"]
 ```
 
 ### Core Technology Stack
