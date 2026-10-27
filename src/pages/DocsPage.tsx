@@ -22,7 +22,7 @@ import {
 import { toast } from "react-hot-toast";
 import BrandLogo from "../components/BrandLogo";
 
-const STELLAR_CONTRACT_ID = "CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B";
+const STELLAR_CONTRACT_ID = "CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL";
 const STELLAR_TESTNET_EXPLORER = `https://stellar.expert/explorer/testnet/contract/${STELLAR_CONTRACT_ID}`;
 
 export default function DocsPage() {

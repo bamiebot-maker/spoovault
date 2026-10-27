@@ -11,7 +11,7 @@
 [![Stellar](https://img.shields.io/badge/Network-Stellar%20Testnet-black?logo=stellar)](https://stellar.org/)
 [![Soroban](https://img.shields.io/badge/Smart%20Contracts-Soroban%20Rust-purple)](https://soroban.stellar.org/)
 [![Vitest](https://img.shields.io/badge/Tests-918%20Passed-emerald?logo=vitest)](https://vitest.dev/)
-[![Soroban Tests](https://img.shields.io/badge/Soroban%20Tests-94%20Passed-brightgreen)](https://stellar.expert/explorer/testnet/contract/CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B)
+[![Soroban Tests](https://img.shields.io/badge/Soroban%20Tests-94%20Passed-brightgreen)](https://stellar.expert/explorer/testnet/contract/CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL)
 [![Grants: Drips Wave](https://img.shields.io/badge/Grants-Drips%20Wave%20%26%20SCF-orange)](https://drips.network)
 </div>
 
@@ -30,8 +30,8 @@ By leveraging Stellar's 5-second ledger finality, fractions-of-a-cent fees, and 
 | Resource | Value / Direct Link |
 | :--- | :--- |
 | **Network** | Stellar Testnet (Protocol 22) |
-| **Contract ID** | [`CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B`](https://stellar.expert/explorer/testnet/contract/CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B) |
-| **Stellar Expert Explorer** | [View Live Contract on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B) |
+| **Contract ID** | [`CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL`](https://stellar.expert/explorer/testnet/contract/CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL) |
+| **Stellar Expert Explorer** | [View Live Contract on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL) |
 | **Public Docs Portal** | [https://spoovault.web.app/docs](https://spoovault.web.app/docs) |
 | **Production Web App** | [https://spoovault.web.app](https://spoovault.web.app) |
 
@@ -131,8 +131,8 @@ VITE_STELLAR_NETWORK=TESTNET
 VITE_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
 VITE_STELLAR_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 VITE_STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
-VITE_STELLAR_CONTRACT_ADDRESS=CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B
-VITE_CONTRACT_ADDRESS=CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B
+VITE_STELLAR_CONTRACT_ADDRESS=CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL
+VITE_CONTRACT_ADDRESS=CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL
 ```
 
 ### 3. Start Local Development
@@ -222,7 +222,7 @@ Stay connected with our official channels and join our community:
 
 - **Live Application:** [https://spoovault.web.app](https://spoovault.web.app)
 - **Public Documentation Hub:** [https://spoovault.web.app/docs](https://spoovault.web.app/docs)
-- **Stellar Contract Explorer:** [CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B](https://stellar.expert/explorer/testnet/contract/CABUBCKYGVLEOBKW5MQ2Q76IOR3NQSYZLPEUP3JDDX5MFHJDAVM7Y26B)
+- **Stellar Contract Explorer:** [CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL](https://stellar.expert/explorer/testnet/contract/CCYKK34DEO2BJABJQ7DW5MZ6PYFC7MRJYTZL2QPKBFCXHR4P347EUFZL)
 - **Official GitHub:** [https://github.com/spoo-vault/spoovault](https://github.com/spoo-vault/spoovault)
 - **Maintainer Mirror:** [https://github.com/bamiebot-maker/spoovault](https://github.com/bamiebot-maker/spoovault)
 - **Founder Profile:** [https://x.com/bamietech_dev](https://x.com/bamietech_dev) (`@bamietech_dev`)
