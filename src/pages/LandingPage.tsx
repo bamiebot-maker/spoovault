@@ -351,7 +351,7 @@ const LandingPage = () => {
           </div>
 
           {/* Large Bold Headline with Animated Shimmer */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-white">
+          <h1 className="text-3xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.12] sm:leading-[1.08] text-white">
             On-Chain Custody &amp; Inheritance
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400 text-gradient-animated">
@@ -360,7 +360,7 @@ const LandingPage = () => {
           </h1>
 
           {/* Subtitle */}
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-gray-300 leading-relaxed font-normal">
+          <p className="max-w-2xl mx-auto text-sm sm:text-lg text-gray-300 leading-relaxed font-normal">
             Immerse yourself in SpooVault to encrypt, protect, and pass on your digital assets and private keys with automated multi-sig guardians and dead-man&apos;s switch on Stellar.
           </p>
 
@@ -447,7 +447,7 @@ const LandingPage = () => {
                       ACTIVE
                     </span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-mono font-bold text-white mt-1">
+                  <p className="text-lg sm:text-2xl font-mono font-bold text-white mt-1 tracking-tight truncate">
                     {formatCountdown(heartbeatSeconds)}
                   </p>
                 </div>
@@ -702,12 +702,34 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Column 2: Profiles & Maintainers */}
+          {/* Column 2: Profiles & Leadership */}
           <div className="space-y-3">
             <p className="text-xs font-bold text-gray-200 uppercase tracking-wider font-mono">
-              Maintainers &amp; Profiles
+              Leadership &amp; Profiles
             </p>
             <ul className="space-y-2 text-xs text-gray-400">
+              <li>
+                <a
+                  href="https://github.com/bamiebot-maker"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-purple-300 transition-colors flex items-center gap-1.5 font-medium text-purple-200"
+                >
+                  <FiGithub className="text-sm text-purple-400" />
+                  <span>Ibrahim Sobur Bamidele (@bamiebot-maker)</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://x.com/bamietech_dev"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-purple-300 transition-colors flex items-center gap-1.5"
+                >
+                  <FiTwitter className="text-sm text-cyan-400" />
+                  <span>@bamietech_dev (X / Twitter)</span>
+                </a>
+              </li>
               <li>
                 <a
                   href="https://github.com/spoovault"
@@ -716,7 +738,7 @@ const LandingPage = () => {
                   className="hover:text-purple-300 transition-colors flex items-center gap-1.5"
                 >
                   <FiGithub className="text-sm" />
-                  <span>SpooVault GitHub Profile</span>
+                  <span>SpooVault Core GitHub</span>
                 </a>
               </li>
               <li>
@@ -740,12 +762,6 @@ const LandingPage = () => {
                   <FiExternalLink className="text-sm" />
                   <span>Stellar Community Fund (SCF)</span>
                 </a>
-              </li>
-              <li>
-                <Link to="/profile" className="hover:text-purple-300 transition-colors flex items-center gap-1.5">
-                  <FiShield className="text-sm" />
-                  <span>User Keyring &amp; Passkeys</span>
-                </Link>
               </li>
             </ul>
           </div>

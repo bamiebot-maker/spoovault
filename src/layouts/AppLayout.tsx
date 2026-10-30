@@ -15,6 +15,9 @@ import {
   FiBell,
   FiBook,
   FiActivity,
+  FiMenu,
+  FiX,
+  FiLogOut,
 } from "react-icons/fi";
 import { useWeb3 } from "../context/Web3Context";
 import { contractService } from "../services/contract.service";
@@ -31,14 +34,19 @@ const AppLayout = () => {
     account,
     isConnected,
     disconnect,
+    openConnectModal,
+    walletType,
   } = useWeb3();
   const [nickname, setNickname] = useState("");
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(true);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const desktopMenuRef = useRef<HTMLDivElement | null>(null);
-  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setMobileDrawerOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const readProfile = () => {
@@ -87,16 +95,6 @@ const AppLayout = () => {
     { path: "/nfts", label: "Access Passes", icon: FiKey },
     { path: "/docs", label: "Docs & Guides", icon: FiBook },
     { path: "/profile", label: "Profile", icon: FiUser },
-  ];
-
-  const mobileNavItems = [
-    { path: "/dashboard", label: "Home", icon: FiHome },
-    { path: "/analytics", label: "Stats", icon: FiActivity },
-    { path: "/vaults", label: "Vaults", icon: FiShield },
-    { path: "/documents", label: "Docs", icon: FiFile },
-    { path: "/access", label: "Access", icon: FiUnlock },
-    { path: "/nfts", label: "Passes", icon: FiKey },
-    { path: "/docs", label: "Guide", icon: FiBook },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -177,7 +175,7 @@ const AppLayout = () => {
 
   useEffect(() => {
     setDesktopMenuOpen(false);
-    setMobileMenuOpen(false);
+    setMobileDrawerOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -219,15 +217,12 @@ const AppLayout = () => {
       if (desktopMenuRef.current && !desktopMenuRef.current.contains(target)) {
         setDesktopMenuOpen(false);
       }
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
-        setMobileMenuOpen(false);
-      }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setDesktopMenuOpen(false);
-        setMobileMenuOpen(false);
+        setMobileDrawerOpen(false);
       }
     };
 
@@ -496,7 +491,6 @@ const AppLayout = () => {
                       className="text-gray-400 hover:text-white"
                       onPress={() => {
                         setDesktopMenuOpen((open) => !open);
-                        setMobileMenuOpen(false);
                       }}
                       aria-label="Open profile menu"
                     >
@@ -539,26 +533,39 @@ const AppLayout = () => {
         )}
       </aside>
 
+      {/* Mobile Top Header */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-40 border-b border-gray-800/80 bg-gray-950/92 backdrop-blur-2xl">
-        <div className="h-16 px-3.5 flex items-center gap-2">
-          <Link
-            to="/dashboard"
-            className="min-w-0 flex-1 flex items-center gap-2.5 overflow-hidden"
-          >
-            <div className="w-9 h-9 rounded-xl bg-white/5 border border-gray-700/60 flex items-center justify-center shadow-lg shadow-brand-900/30">
-              <BrandLogo className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[15px] font-semibold leading-none truncate">
-                SpooVault
-              </p>
-              <p className="text-[11px] text-gray-400 mt-1 truncate">
-                Family Access App
-              </p>
-            </div>
-          </Link>
+        <div className="h-16 px-3.5 flex items-center justify-between gap-2">
+          {/* Left: Hamburger menu toggle + Brand Logo */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              aria-label="Open navigation menu"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="w-10 h-10 rounded-xl border border-gray-800 bg-gray-900/80 flex items-center justify-center text-gray-300 hover:text-white hover:border-gray-700 transition-colors flex-shrink-0"
+            >
+              <FiMenu className="text-[18px]" />
+            </button>
+            <Link
+              to="/dashboard"
+              className="min-w-0 flex items-center gap-2 overflow-hidden"
+            >
+              <div className="w-8 h-8 rounded-xl bg-white/5 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-900/30 flex-shrink-0">
+                <BrandLogo className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[14px] font-bold leading-none text-white truncate">
+                  SpooVault
+                </p>
+                <p className="text-[10px] text-purple-400 font-mono mt-0.5 truncate">
+                  SOROBAN CUSTODY
+                </p>
+              </div>
+            </Link>
+          </div>
 
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Right: Notifications + Wallet Pill */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             {isConnected && (
               <button
                 type="button"
@@ -580,74 +587,174 @@ const AppLayout = () => {
                     {pendingApprovalCount > 9 ? "9+" : pendingApprovalCount}
                   </span>
                 )}
-                {pendingApprovalCount > 0 && (
-                  <span className="pointer-events-none absolute inset-0 rounded-xl border border-brand-500/45 animate-pulse" />
-                )}
               </button>
             )}
-            {!isConnected && (
-              <Link
-                to="/profile"
-                aria-label="Open profile"
-                className="w-9 h-9 rounded-xl border border-gray-700/75 bg-gray-900/75 text-gray-300 flex items-center justify-center hover:border-gray-600 hover:text-gray-100 transition-colors"
-              >
-                <FiUser className="text-[14px]" />
-              </Link>
-            )}
+
             {!isConnected ? (
-              <Tooltip
-                content="Wallet not connected"
-                placement="bottom"
-                delay={120}
+              <Button
+                size="sm"
+                onClick={openConnectModal}
+                className="h-9 px-3 rounded-xl font-bold text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-900/40"
               >
-                <span className="inline-flex w-2.5 h-2.5 rounded-full bg-gray-500 ring-2 ring-gray-500/20" />
-              </Tooltip>
+                Connect
+              </Button>
             ) : (
-              <Tooltip content="Connected: Stellar Soroban Testnet" placement="bottom" delay={120}>
-                <span className="inline-flex w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/25 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
-              </Tooltip>
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-gray-700/80 bg-gray-900/80 text-xs text-gray-200 hover:border-purple-500/60 transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                <span className="font-mono text-[11px]">
+                  {account ? shortenAddress(account) : "Connected"}
+                </span>
+              </button>
             )}
-            {isConnected ? (
-              <div className="relative" ref={mobileMenuRef}>
-                <button
-                  type="button"
-                  className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/70"
-                  aria-label="Open account menu"
-                  onClick={() => {
-                    setMobileMenuOpen((open) => !open);
-                    setDesktopMenuOpen(false);
-                  }}
-                >
-                  <Avatar
-                    className="w-8 h-8 bg-gradient-to-br from-brand-700 to-brand-900"
-                    name={nickname || account?.substring(2, 6)}
-                  />
-                </button>
-                {mobileMenuOpen && (
-                  <div className="absolute right-0 top-11 z-50 w-44 rounded-xl border border-gray-700/80 bg-gray-950/95 p-1 shadow-2xl">
-                    {profileMenuItems.map((item) => (
-                      <button
-                        key={`mobile-${item.key}`}
-                        type="button"
-                        className={profileMenuItemClass(item.tone)}
-                        onClick={() => {
-                          item.onClick();
-                          setMobileMenuOpen(false);
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
           </div>
         </div>
       </header>
 
+      {/* Mobile Off-Canvas Sliding Drawer Backdrop */}
+      {mobileDrawerOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm transition-opacity"
+          onClick={() => setMobileDrawerOpen(false)}
+        />
+      )}
+
+      {/* Mobile Off-Canvas Sliding Drawer */}
+      <aside
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-[84vw] max-w-[320px] bg-gray-950 border-r border-gray-800 p-5 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-in-out ${
+          mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        aria-label="Mobile navigation drawer"
+      >
+        <div className="flex flex-col h-full overflow-y-auto">
+          {/* Drawer Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-gray-800/80">
+            <Link
+              to="/dashboard"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="flex items-center gap-2.5"
+            >
+              <div className="w-9 h-9 rounded-xl bg-white/5 border border-purple-500/40 flex items-center justify-center shadow-lg shadow-purple-950/50">
+                <BrandLogo className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-base font-bold text-white leading-none">SpooVault</p>
+                <p className="text-[10px] text-purple-400 font-mono mt-1">
+                  STELLAR // SOROBAN
+                </p>
+              </div>
+            </Link>
+            <button
+              type="button"
+              aria-label="Close navigation drawer"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="w-9 h-9 rounded-xl border border-gray-800 bg-gray-900/60 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            >
+              <FiX className="text-lg" />
+            </button>
+          </div>
+
+          {/* Connected User / Account Badge */}
+          <div className="mt-4 p-3 rounded-2xl border border-gray-800/90 bg-gray-900/40">
+            {isConnected ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar
+                      className="w-7 h-7 bg-gradient-to-br from-brand-700 to-brand-900 text-xs"
+                      name={nickname || account?.substring(2, 6)}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white truncate">
+                        {nickname || (account ? shortenAddress(account) : "Connected")}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-mono truncate">
+                        {account ? `${account.slice(0, 10)}...` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                    {walletType === "demo" ? "DEMO" : walletType === "albedo" ? "ALBEDO" : "FREIGHTER"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-1">
+                <p className="text-xs text-gray-400 mb-2">No wallet connected</p>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setMobileDrawerOpen(false);
+                    openConnectModal();
+                  }}
+                  className="w-full h-8 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+                >
+                  Connect Wallet
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="mt-4 space-y-1 flex-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={`drawer-${item.path}`}
+                  to={item.path}
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    active
+                      ? "bg-purple-600/15 border border-purple-500/40 text-purple-200 shadow-sm"
+                      : "text-gray-400 hover:text-gray-100 hover:bg-gray-900/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`text-base ${active ? "text-purple-400" : "text-gray-400"}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {active && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Drawer Footer Actions */}
+          <div className="pt-4 mt-4 border-t border-gray-800/80 space-y-2">
+            {isConnected && (
+              <button
+                type="button"
+                onClick={() => {
+                  disconnect({ notify: true });
+                  setMobileDrawerOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-red-900/40 bg-red-950/20 text-red-300 text-xs font-semibold hover:bg-red-950/40 transition-colors"
+              >
+                <FiLogOut className="text-sm" />
+                <span>Disconnect Wallet</span>
+              </button>
+            )}
+
+            <div className="flex items-center justify-between text-[11px] text-gray-500 px-1 pt-1 font-mono">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Testnet Live</span>
+              </span>
+              <span>v1.0.0</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
       <main
-        className={`min-h-screen pt-20 pb-24 lg:pt-0 lg:pb-0 transition-[margin] duration-300 ${
+        className={`min-h-screen pt-20 pb-8 lg:pt-0 lg:pb-0 transition-[margin] duration-300 ${
           desktopSidebarExpanded ? "lg:ml-[20rem]" : "lg:ml-[4.5rem]"
         }`}
       >
@@ -657,42 +764,6 @@ const AppLayout = () => {
           </div>
         </div>
       </main>
-
-      <nav className="lg:hidden fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto max-w-md rounded-2xl border border-gray-800/80 bg-gray-900/92 backdrop-blur-2xl shadow-[0_16px_30px_-22px_rgba(0,0,0,0.95)]">
-          <div className="grid grid-cols-6 gap-1 p-1.5">
-            {mobileNavItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-all ${
-                    active
-                      ? "bg-brand-700/18 border border-brand-700/35 text-brand-300"
-                      : "border border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/55"
-                  }`}
-                >
-                  <Icon
-                    className={`text-[16px] ${
-                      active ? "text-brand-300" : "text-gray-500"
-                    }`}
-                  />
-                  <span
-                    className={`text-[10px] leading-none ${
-                      active ? "text-brand-300" : "text-gray-500"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
     </div>
   );
 };

@@ -11,6 +11,21 @@ permissions:
   security-events: write # Required for SARIF upload
 
 jobs:
+  pr-malware-scanner:
+    name: Supply Chain & Malicious PR Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run Malicious Indicator Scan
+        run: node scripts/security-scan-pr.mjs
+
   solidity-security:
     name: Solidity Analysis (Slither & Mythril)
     runs-on: ubuntu-latest

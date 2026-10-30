@@ -8,6 +8,7 @@ import {
 import { sorobanEventIndexer } from "../services/sorobanEventIndexer.service";
 import { blsKeyringService } from "../services/blsKeyring.service";
 import type { BLSKeyPair, BLSSignatureShare, BLSAggregatedApprovalPayload } from "../types/bls";
+import ConnectWalletModal from "../components/modals/ConnectWalletModal";
 
 const AUTO_CONNECT_MAX_ATTEMPTS = 3;
 const AUTO_CONNECT_BASE_DELAY_MS = 1000;
@@ -31,6 +32,12 @@ interface Web3ContextType {
   contract: any | null;
   connect: () => Promise<void>;
   disconnect: (options?: { notify?: boolean }) => void;
+  openConnectModal: () => void;
+  closeConnectModal: () => void;
+  isConnectModalOpen: boolean;
+  connectDemo: (secretKey?: string) => Promise<void>;
+  connectAlbedo: () => Promise<void>;
+  walletType: "freighter" | "demo" | "albedo" | null;
   switchToFuji: () => Promise<void>;
   isFujiNetwork: boolean;
   isStellarNetwork: boolean;
@@ -58,6 +65,8 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
   const [account, setAccount] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [walletType, setWalletType] = useState<"freighter" | "demo" | "albedo" | null>(null);
   const [stellarNetwork, setStellarNetwork] = useState<string | null>("TESTNET");
   const [blsKeyPair, setBlsKeyPair] = useState<BLSKeyPair | null>(null);
 
@@ -222,8 +231,56 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
     };
   }, [validateStellarNetwork]);
 
+  const openConnectModal = useCallback(() => setIsConnectModalOpen(true), []);
+  const closeConnectModal = useCallback(() => setIsConnectModalOpen(false), []);
+
+  const connectDemo = async (secretKey?: string) => {
+    resetAutoConnectGuard();
+    setIsConnecting(true);
+    try {
+      const address = await stellarService.connectDemoWallet(secretKey);
+      setAccount(address);
+      setWalletType("demo");
+      const relayUrl = import.meta.env.VITE_SOROBAN_EVENT_RELAY_URL as string | undefined;
+      sorobanEventIndexer.start(
+        stellarService.getRpcUrl(),
+        stellarService.getContractId(),
+        relayUrl
+      );
+      setStellarNetwork("TESTNET");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const connectAlbedo = async () => {
+    resetAutoConnectGuard();
+    setIsConnecting(true);
+    try {
+      const address = await stellarService.connectAlbedoWallet();
+      setAccount(address);
+      setWalletType("albedo");
+      const relayUrl = import.meta.env.VITE_SOROBAN_EVENT_RELAY_URL as string | undefined;
+      sorobanEventIndexer.start(
+        stellarService.getRpcUrl(),
+        stellarService.getContractId(),
+        relayUrl
+      );
+      setStellarNetwork("TESTNET");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const connect = async () => {
     resetAutoConnectGuard();
+
+    // On mobile devices or browsers without desktop extensions, open the multi-wallet modal
+    if (stellarService.isMobileDevice()) {
+      setIsConnectModalOpen(true);
+      return;
+    }
+
     setIsConnecting(true);
     try {
       if (isTestEnv && typeof window !== "undefined" && (window as any).ethereum) {
@@ -246,6 +303,7 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
 
       const address = await stellarService.connectWallet();
       setAccount(address);
+      setWalletType("freighter");
 
       // Start Soroban event indexer
       const relayUrl = import.meta.env.VITE_SOROBAN_EVENT_RELAY_URL as string | undefined;
@@ -262,8 +320,14 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
       }
       toast.success(`Connected Freighter: ${address.slice(0, 6)}...${address.slice(-4)}`);
     } catch (error: any) {
-      console.error("Freighter connect failed:", error);
-      toast.error(error.message || "Failed to connect Freighter wallet. Please ensure the extension is unlocked.");
+      console.warn("Freighter connect attempt failed:", error);
+      const msg = typeof error?.message === "string" ? error.message : "";
+      if (msg.includes("not installed") || msg.includes("not enabled")) {
+        // Automatically present user-friendly options modal
+        setIsConnectModalOpen(true);
+      } else {
+        toast.error(error.message || "Failed to connect Freighter wallet");
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -277,6 +341,7 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
     stellarService.clear();
     sorobanEventIndexer.stop();
     setAccount(null);
+    setWalletType(null);
     contractService.clear();
 
     if (notify) {
@@ -361,6 +426,12 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
     contract: null,
     connect,
     disconnect,
+    openConnectModal,
+    closeConnectModal,
+    isConnectModalOpen,
+    connectDemo,
+    connectAlbedo,
+    walletType,
     switchToFuji,
     isFujiNetwork: true, // Legacy compatibility flag, always true so no component blocks
     isStellarNetwork: true,
@@ -374,7 +445,12 @@ export const Web3Provider = ({ children }: { children: ReactNode }) => {
     submitBLSBatchApproval,
   };
 
-  return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;
+  return (
+    <Web3Context.Provider value={value}>
+      {children}
+      <ConnectWalletModal isOpen={isConnectModalOpen} onClose={closeConnectModal} />
+    </Web3Context.Provider>
+  );
 };
 
 export const useWeb3 = () => {

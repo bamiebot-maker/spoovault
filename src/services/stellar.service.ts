@@ -342,6 +342,18 @@ const normalizeBindingResult = (result: any): { evmAddress: string; stellarPubli
   };
 };
 
+export type WalletProviderType = "freighter" | "demo" | "albedo";
+let activeWalletType: WalletProviderType = "freighter";
+let demoKeypair: any = null;
+
+export const isMobileDevice = (): boolean => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+export const getWalletType = (): WalletProviderType => activeWalletType;
+export const getDemoKeypair = (): any => demoKeypair;
+
 const isConfigured = (): boolean => {
   return !!getContractId();
 };
@@ -353,6 +365,35 @@ const initialize = async (customContractId?: string): Promise<string | null> => 
     contractId = (import.meta.env.VITE_STELLAR_CONTRACT_ADDRESS as string | undefined) || "";
   }
 
+  // 1. Check stored wallet session
+  if (typeof window !== "undefined") {
+    const savedType = window.localStorage.getItem("spoovault_wallet_type") as WalletProviderType | null;
+    if (savedType === "demo") {
+      const savedSecret = window.localStorage.getItem("spoovault_demo_secret");
+      if (savedSecret && savedSecret.startsWith("S")) {
+        try {
+          const sdk = await loadStellarSdk();
+          demoKeypair = sdk.Keypair.fromSecret(savedSecret);
+          activeAccount = demoKeypair.publicKey();
+          activeWalletType = "demo";
+          activeNetwork = "TESTNET";
+          return activeAccount;
+        } catch (e) {
+          console.warn("Failed to restore demo keypair:", e);
+        }
+      }
+    } else if (savedType === "albedo") {
+      const savedAccount = window.localStorage.getItem("spoovault_account");
+      if (savedAccount) {
+        activeAccount = savedAccount;
+        activeWalletType = "albedo";
+        activeNetwork = "TESTNET";
+        return activeAccount;
+      }
+    }
+  }
+
+  // 2. Try Freighter
   try {
     const freighter = await loadFreighter();
     const connected = await freighter.isConnected();
@@ -364,6 +405,7 @@ const initialize = async (customContractId?: string): Promise<string | null> => 
       if (allowed) {
         const address = await freighter.getAddress();
         activeAccount = address || null;
+        activeWalletType = "freighter";
         return activeAccount;
       }
     }
@@ -376,9 +418,151 @@ const initialize = async (customContractId?: string): Promise<string | null> => 
 const clear = () => {
   activeAccount = null;
   activeNetwork = "";
+  demoKeypair = null;
+  activeWalletType = "freighter";
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("spoovault_wallet_type");
+    window.localStorage.removeItem("spoovault_account");
+  }
 };
 
 const getAccount = (): string | null => activeAccount;
+
+export const connectDemoWallet = async (providedSecret?: string): Promise<string> => {
+  const sdk = await loadStellarSdk();
+  let keypair: any;
+  if (providedSecret && providedSecret.startsWith("S")) {
+    keypair = sdk.Keypair.fromSecret(providedSecret.trim());
+  } else {
+    const storedSecret = typeof window !== "undefined" ? window.localStorage.getItem("spoovault_demo_secret") : null;
+    if (storedSecret && storedSecret.startsWith("S")) {
+      try {
+        keypair = sdk.Keypair.fromSecret(storedSecret);
+      } catch {
+        keypair = sdk.Keypair.random();
+      }
+    } else {
+      keypair = sdk.Keypair.random();
+    }
+  }
+
+  const pubKey = keypair.publicKey();
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem("spoovault_demo_secret", keypair.secret());
+    window.localStorage.setItem("spoovault_wallet_type", "demo");
+    window.localStorage.setItem("spoovault_account", pubKey);
+  }
+
+  demoKeypair = keypair;
+  activeAccount = pubKey;
+  activeWalletType = "demo";
+  activeNetwork = "TESTNET";
+
+  // Auto-fund via Friendbot on testnet in background
+  try {
+    void fetch(`https://friendbot.stellar.org/?addr=${pubKey}`).catch(() => {});
+  } catch {
+    // ignore
+  }
+
+  return pubKey;
+};
+
+export const connectAlbedoWallet = async (): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      return reject(new Error("Window is not available"));
+    }
+    const width = 450;
+    const height = 650;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    const popup = window.open(
+      "https://albedo.link/confirm?intent=public_key",
+      "albedo-auth",
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+
+    if (!popup) {
+      return reject(new Error("Popup was blocked by your browser. Please allow popups for Albedo authentication."));
+    }
+
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", onMessage);
+      reject(new Error("Albedo connection timed out"));
+    }, 120000);
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== "https://albedo.link") return;
+      if (event.data && event.data.albedo) {
+        clearTimeout(timer);
+        window.removeEventListener("message", onMessage);
+        const { albedo } = event.data;
+        if (albedo.error) {
+          reject(new Error(albedo.error.message || "Albedo authentication rejected"));
+        } else if (albedo.pubkey) {
+          activeAccount = albedo.pubkey;
+          activeWalletType = "albedo";
+          activeNetwork = "TESTNET";
+          window.localStorage.setItem("spoovault_wallet_type", "albedo");
+          window.localStorage.setItem("spoovault_account", albedo.pubkey);
+          resolve(albedo.pubkey);
+        } else {
+          reject(new Error("No public key returned by Albedo"));
+        }
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+  });
+};
+
+const requestAlbedoTransaction = async (xdr: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      return reject(new Error("Window is not available"));
+    }
+    const width = 500;
+    const height = 700;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    const popup = window.open(
+      `https://albedo.link/confirm?intent=tx&xdr=${encodeURIComponent(xdr)}&network=testnet`,
+      "albedo-tx",
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+
+    if (!popup) {
+      return reject(new Error("Popup blocked. Please allow popups for Albedo transaction signing."));
+    }
+
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", onMessage);
+      reject(new Error("Albedo transaction signing timed out"));
+    }, 180000);
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== "https://albedo.link") return;
+      if (event.data && event.data.albedo) {
+        clearTimeout(timer);
+        window.removeEventListener("message", onMessage);
+        const { albedo } = event.data;
+        if (albedo.error) {
+          reject(new Error(albedo.error.message || "Albedo transaction rejected"));
+        } else {
+          const signed = albedo.signed_envelope_xdr || albedo.xdr;
+          if (signed) {
+            resolve(signed);
+          } else {
+            reject(new Error("No signed transaction XDR returned"));
+          }
+        }
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+  });
+};
 
 const connectWallet = async (): Promise<string> => {
   const freighter = await loadFreighter();
@@ -440,6 +624,11 @@ const connectWallet = async (): Promise<string> => {
   }
 
   activeAccount = address;
+  activeWalletType = "freighter";
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem("spoovault_wallet_type", "freighter");
+    window.localStorage.setItem("spoovault_account", address);
+  }
   return address;
 };
 
@@ -761,27 +950,41 @@ const executeSorobanCall = async (
     throw new Error(`Simulation failed: ${simulation.error}`);
   }
   
-  // 5. Sign auth entries (simulation entries) before Freighter submission
+  // 5. Sign auth entries (simulation entries) before transaction submission
   if (simulation.results && simulation.results.length > 0) {
     const result = simulation.results[0];
     if (result.auth && result.auth.length > 0) {
-      const freighter = await loadFreighter();
-      if (typeof freighter.signAuthEntry !== "function") {
-        throw new Error("Freighter wallet does not support signAuthEntry");
-      }
-      for (let i = 0; i < result.auth.length; i++) {
-        const entry = result.auth[i];
-        const preimageXdr = entry.preimage().toXDR("base64");
-
-        const signResponse = await freighter.signAuthEntry(preimageXdr);
-        if (signResponse.error) {
-          throw new Error(`Freighter auth entry signing failed: ${signResponse.error}`);
+      if (activeWalletType === "demo" && demoKeypair) {
+        for (let i = 0; i < result.auth.length; i++) {
+          const entry = result.auth[i];
+          if (typeof sdk.authorizeEntry === "function") {
+            try {
+              const latestLedger = await server.getLatestLedger();
+              const validUntil = latestLedger.sequence + 120;
+              result.auth[i] = await sdk.authorizeEntry(entry, demoKeypair, validUntil, sdk.Networks.TESTNET);
+            } catch (err) {
+              console.warn("Could not authorize entry with demoKeypair:", err);
+            }
+          }
         }
-        
-        if (signResponse.signedAuthEntry) {
-          const signedEntryXdr = signResponse.signedAuthEntry;
-          const parsedEntry = sdk.xdr.SorobanAuthorizationEntry.fromXDR(signedEntryXdr, "base64");
-          result.auth[i] = parsedEntry;
+      } else if (activeWalletType !== "albedo") {
+        const freighter = await loadFreighter();
+        if (typeof freighter.signAuthEntry === "function") {
+          for (let i = 0; i < result.auth.length; i++) {
+            const entry = result.auth[i];
+            const preimageXdr = entry.preimage().toXDR("base64");
+
+            const signResponse = await freighter.signAuthEntry(preimageXdr);
+            if (signResponse.error) {
+              throw new Error(`Freighter auth entry signing failed: ${signResponse.error}`);
+            }
+            
+            if (signResponse.signedAuthEntry) {
+              const signedEntryXdr = signResponse.signedAuthEntry;
+              const parsedEntry = sdk.xdr.SorobanAuthorizationEntry.fromXDR(signedEntryXdr, "base64");
+              result.auth[i] = parsedEntry;
+            }
+          }
         }
       }
     }
@@ -790,16 +993,23 @@ const executeSorobanCall = async (
   // 6. Assemble the transaction with simulated data
   const preparedTx = sdk.rpc.assembleTransaction(tx, simulation).build();
   
-  // 7. Request Freighter user signature for transaction envelope
-  const freighter = await loadFreighter();
-  if (typeof freighter.signTransaction !== "function") {
-    throw new Error("Freighter wallet does not support signTransaction");
+  // 7. Request user signature for transaction envelope
+  let signedXdr = "";
+  if (activeWalletType === "demo" && demoKeypair) {
+    preparedTx.sign(demoKeypair);
+    signedXdr = preparedTx.toXDR();
+  } else if (activeWalletType === "albedo") {
+    signedXdr = await requestAlbedoTransaction(preparedTx.toXDR());
+  } else {
+    const freighter = await loadFreighter();
+    if (typeof freighter.signTransaction !== "function") {
+      throw new Error("Freighter wallet does not support signTransaction");
+    }
+    signedXdr = await freighter.signTransaction(preparedTx.toXDR(), {
+      network: "TESTNET"
+    });
   }
-  const signedXdr = await freighter.signTransaction(preparedTx.toXDR(), {
-    network: "TESTNET"
-  });
 
-  
   if (!signedXdr) {
     throw new Error("Transaction signing rejected or failed");
   }
@@ -1890,6 +2100,11 @@ const signIdentityBindingWithMetaMask = async (
  * @returns the 64-byte Ed25519 signature as 0x-prefixed hex.
  */
 const signIdentityBindingWithFreighter = async (messageHash: string): Promise<string> => {
+  if (activeWalletType === "demo" && demoKeypair) {
+    const rawHashBytes = hexToBytes(messageHash.startsWith("0x") ? messageHash.slice(2) : messageHash);
+    const signature = demoKeypair.sign(rawHashBytes);
+    return `0x${bytesToHex(signature)}`;
+  }
   const freighter = await loadFreighter();
   if (typeof freighter.signBlob !== "function") {
     throw new Error("Freighter signBlob is not available");
@@ -1924,6 +2139,11 @@ export const stellarService = {
   clear,
   getAccount,
   connectWallet,
+  connectDemoWallet,
+  connectAlbedoWallet,
+  getWalletType,
+  getDemoKeypair,
+  isMobileDevice,
   getActiveNetwork,
   getNetwork,
   getRpcUrl,
